@@ -1,17 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import { api } from './api';
 
-// Re-use the base configuration from api.ts logic (simplified here)
-// In a real scenario, we'd export API_BASE from api.ts or use a shared config
-const TUNNEL_URL = 'https://arcadia-api-2025.loca.lt';
-const LOCAL_IP = '192.168.0.101';
+const STORAGE_KEY_KEY = 'arcadia_admin_key';
+const STORAGE_KEY_URL = 'arcadia_api_url';
+const LOCAL_IP = '192.168.0.101'; // Fallback
 
-const API_BASE = Platform.OS === 'web'
-    ? ''
-    : `http://${LOCAL_IP}:8000`;
-
-const STORAGE_KEY = 'arcadia_admin_key';
+// Default to empty for web (relative) unless overridden
+let currentApiBase = Platform.OS === 'web' ? '' : `http://${LOCAL_IP}:8000`;
 
 export interface AdminGame {
     id: string;
@@ -25,20 +20,37 @@ export interface AdminGame {
 }
 
 export const adminService = {
-    /**
-     * Verify if we have a stored admin key
-     */
+    async init() {
+        // Load custom URL if valid
+        const storedUrl = await AsyncStorage.getItem(STORAGE_KEY_URL);
+        if (storedUrl) {
+            currentApiBase = storedUrl;
+        }
+    },
+
+    async setApiUrl(url: string) {
+        // Ensure no trailing slash
+        const cleanUrl = url.replace(/\/$/, '');
+        currentApiBase = cleanUrl;
+        await AsyncStorage.setItem(STORAGE_KEY_URL, cleanUrl);
+    },
+
+    async getApiUrl() {
+        return currentApiBase;
+    },
+
     async hasKey(): Promise<boolean> {
-        const key = await AsyncStorage.getItem(STORAGE_KEY);
+        const key = await AsyncStorage.getItem(STORAGE_KEY_KEY);
+        // Ensure URL is loaded
+        if (!currentApiBase) await this.init();
         return !!key;
     },
 
-    /**
-     * Save key and validate against backend
-     */
     async login(key: string): Promise<boolean> {
+        if (!currentApiBase) await this.init();
         try {
-            const response = await fetch(`${API_BASE}/api/admin/games`, {
+            console.log('Admin Login connecting to:', `${currentApiBase}/api/admin/games`);
+            const response = await fetch(`${currentApiBase}/api/admin/games`, {
                 headers: {
                     'X-Arcadia-Admin-Key': key,
                     'Accept': 'application/json'
@@ -46,7 +58,7 @@ export const adminService = {
             });
 
             if (response.ok) {
-                await AsyncStorage.setItem(STORAGE_KEY, key);
+                await AsyncStorage.setItem(STORAGE_KEY_KEY, key);
                 return true;
             }
             return false;
@@ -56,21 +68,16 @@ export const adminService = {
         }
     },
 
-    /**
-     * Logout (clear key)
-     */
     async logout(): Promise<void> {
-        await AsyncStorage.removeItem(STORAGE_KEY);
+        await AsyncStorage.removeItem(STORAGE_KEY_KEY);
     },
 
-    /**
-     * Get list of games
-     */
     async getGames(): Promise<AdminGame[]> {
-        const key = await AsyncStorage.getItem(STORAGE_KEY);
+        if (!currentApiBase) await this.init();
+        const key = await AsyncStorage.getItem(STORAGE_KEY_KEY);
         if (!key) throw new Error('No admin key');
 
-        const response = await fetch(`${API_BASE}/api/admin/games`, {
+        const response = await fetch(`${currentApiBase}/api/admin/games`, {
             headers: {
                 'X-Arcadia-Admin-Key': key,
                 'Accept': 'application/json'
@@ -81,17 +88,14 @@ export const adminService = {
         return await response.json();
     },
 
-    /**
-     * Toggle game status (Live <-> Hidden)
-     */
     async toggleStatus(gameId: string, currentStatus: string): Promise<boolean> {
-        const key = await AsyncStorage.getItem(STORAGE_KEY);
+        const key = await AsyncStorage.getItem(STORAGE_KEY_KEY);
         if (!key) return false;
 
-        const newStatus = currentStatus === 'live' ? false : true; // API expects boolean is_active
+        const newStatus = currentStatus === 'live' ? false : true;
 
         try {
-            const response = await fetch(`${API_BASE}/api/admin/games/${gameId}/status`, {
+            const response = await fetch(`${currentApiBase}/api/admin/games/${gameId}/status`, {
                 method: 'PATCH',
                 headers: {
                     'X-Arcadia-Admin-Key': key,
@@ -106,15 +110,12 @@ export const adminService = {
         }
     },
 
-    /**
-     * Toggle featured status
-     */
     async toggleFeatured(gameId: string): Promise<boolean> {
-        const key = await AsyncStorage.getItem(STORAGE_KEY);
+        const key = await AsyncStorage.getItem(STORAGE_KEY_KEY);
         if (!key) return false;
 
         try {
-            const response = await fetch(`${API_BASE}/api/admin/games/${gameId}/toggle-featured`, {
+            const response = await fetch(`${currentApiBase}/api/admin/games/${gameId}/toggle-featured`, {
                 method: 'POST',
                 headers: {
                     'X-Arcadia-Admin-Key': key,
