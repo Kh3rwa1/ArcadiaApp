@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quantum Racer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0a0a1a;
+            font-family: -apple-system, system-ui, sans-serif;
+            touch-action: none
+        }
+
+        #game {
+            position: absolute;
+            inset: 0
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: env(safe-area-inset-top, 20px) 20px 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10
+        }
+
+        .stat {
+            text-align: center
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8)
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px
+        }
+
+        #boost-bar {
+            position: absolute;
+            bottom: env(safe-area-inset-bottom, 20px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            max-width: 200px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden
+        }
+
+        #boost-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0ff, #f0f);
+            border-radius: 4px;
+            transition: width 0.1s
+        }
+
+        #start {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #0a0a2a, #1a0a2a);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100
+        }
+
+        #start.hidden {
+            display: none
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 40px #0ff, 0 0 80px #f0f;
+            letter-spacing: 4px
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            margin-top: 8px
+        }
+
+        .play-btn {
+            margin-top: 40px;
+            padding: 16px 50px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0a0a1a;
+            background: linear-gradient(135deg, #0ff, #f0f);
+            border: none;
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 4px
+        }
+
+        #gameover {
+            position: absolute;
+            inset: 0;
+            background: rgba(10, 10, 26, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100
+        }
+
+        #gameover.active {
+            display: flex
+        }
+
+        .final {
+            font-size: 64px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #0ff, #f0f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        .retry-btn {
+            margin-top: 30px;
+            padding: 14px 40px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 3px
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 40px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            pointer-events: auto;
+            z-index: 50
+        }
+
+        .ctrl-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.6);
+            -webkit-tap-highlight-color: transparent
+        }
+
+        .ctrl-btn:active {
+            background: rgba(0, 255, 255, 0.2);
+            border-color: #0ff
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game"></canvas>
+    <div id="hud">
+        <div class="stat">
+            <div class="stat-value" id="speed">0</div>
+            <div class="stat-label">km/h</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="score">0</div>
+            <div class="stat-label">dist</div>
+        </div>
+    </div>
+    <div id="boost-bar">
+        <div id="boost-fill" style="width:100%"></div>
+    </div>
+    <div id="controls">
+        <div class="ctrl-btn" id="left">◀</div>
+        <div class="ctrl-btn" id="boost">⚡</div>
+        <div class="ctrl-btn" id="right">▶</div>
+    </div>
+    <div id="start">
+        <div class="title">QUANTUM</div>
+        <div class="subtitle">Endless Runner</div>
+        <button class="play-btn" id="play">LAUNCH</button>
+    </div>
+    <div id="gameover">
+        <div class="final" id="final">0</div>
+        <div style="color:rgba(255,255,255,0.5);margin-top:10px">DISTANCE</div>
+        <button class="retry-btn" id="retry">RETRY</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
+        const speedEl = document.getElementById('speed'), scoreEl = document.getElementById('score'), boostFill = document.getElementById('boost-fill');
+        const startEl = document.getElementById('start'), gameoverEl = document.getElementById('gameover'), finalEl = document.getElementById('final');
+
+        let W, H, playing = false, score = 0, speed = 8, boost = 100, lane = 1, targetLane = 1;
+        let obstacles = [], particles = [];
+        const LANES = [0.2, 0.5, 0.8];
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight }
+        window.addEventListener('resize', resize); resize();
+
+        function spawnObstacle() {
+            const l = Math.floor(Math.random() * 3);
+            obstacles.push({ lane: l, y: -100, w: 50, h: 80, color: `hsl(${Math.random() * 60 + 300},80%,50%)` });
+        }
+
+        function spawnParticle(x, y, c) {
+            for (let i = 0; i < 5; i++) {
+                particles.push({ x, y, vx: (Math.random() - 0.5) * 4, vy: -Math.random() * 4 - 2, life: 1, color: c });
+            }
+        }
+
+        function update() {
+            if (!playing) return;
+
+            // Lane movement
+            const targetX = LANES[targetLane] * W;
+            lane += (targetLane - lane) * 0.12;
+
+            // Boost
+            if (boosting && boost > 0) { boost -= 0.8; speed = Math.min(20, speed + 0.1) }
+            else { boost = Math.min(100, boost + 0.1); speed = Math.max(8, speed - 0.02) }
+            boostFill.style.width = boost + '%';
+
+            // Score
+            score += Math.floor(speed / 4);
+            scoreEl.textContent = Math.floor(score / 10);
+            speedEl.textContent = Math.floor(speed * 15);
+
+            // Obstacles
+            if (Math.random() < 0.02 + speed / 500) spawnObstacle();
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const o = obstacles[i];
+                o.y += speed;
+                // Collision
+                const px = LANES[Math.round(lane)] * W;
+                if (o.y > H - 180 && o.y < H - 80 && Math.abs(LANES[o.lane] * W - px) < 40) {
+                    endGame(); return;
+                }
+                if (o.y > H + 100) obstacles.splice(i, 1);
+            }
+
+            // Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.02;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#0a0a1a'; ctx.fillRect(0, 0, W, H);
+
+            // Road
+            const roadW = W * 0.7;
+            const roadL = (W - roadW) / 2;
+            ctx.fillStyle = '#12121f';
+            ctx.fillRect(roadL, 0, roadW, H);
+
+            // Road lines
+            ctx.strokeStyle = 'rgba(0,255,255,0.3)'; ctx.lineWidth = 3;
+            const lineOffset = (Date.now() / 20) % 40;
+            for (let y = -40 + lineOffset; y < H; y += 40) {
+                ctx.beginPath(); ctx.moveTo(roadL + roadW / 3, y); ctx.lineTo(roadL + roadW / 3, y + 20); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(roadL + roadW * 2 / 3, y); ctx.lineTo(roadL + roadW * 2 / 3, y + 20); ctx.stroke();
+            }
+
+            // Obstacles
+            obstacles.forEach(o => {
+                const x = roadL + LANES[o.lane] * roadW - o.w / 2;
+                ctx.fillStyle = o.color;
+                ctx.beginPath();
+                ctx.roundRect(x, o.y, o.w, o.h, 8);
+                ctx.fill();
+                ctx.shadowColor = o.color; ctx.shadowBlur = 15;
+                ctx.fillRect(x, o.y, o.w, o.h);
+                ctx.shadowBlur = 0;
+            });
+
+            // Player ship
+            const px = roadL + LANES[Math.round(lane)] * roadW;
+            const py = H - 120;
+            ctx.save(); ctx.translate(px, py);
+
+            // Engine glow
+            const gradient = ctx.createRadialGradient(0, 40, 0, 0, 40, 30);
+            gradient.addColorStop(0, 'rgba(0,255,255,0.8)');
+            gradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = gradient; ctx.fillRect(-15, 30, 30, 40);
+
+            // Ship body
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(0, -35); ctx.lineTo(-25, 25); ctx.lineTo(0, 15); ctx.lineTo(25, 25); ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#0ff';
+            ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+
+            // Particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // Speed lines
+            if (speed > 12) {
+                ctx.strokeStyle = `rgba(0,255,255,${(speed - 12) / 20})`;
+                for (let i = 0; i < 5; i++) {
+                    const lx = Math.random() * W;
+                    ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, 50); ctx.stroke();
+                }
+            }
+        }
+
+        let boosting = false;
+        function gameLoop() {
+            update(); draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            playing = true; score = 0; speed = 8; boost = 100; lane = 1; targetLane = 1;
+            obstacles = []; particles = [];
+            startEl.classList.add('hidden');
+            gameoverEl.classList.remove('active');
+            window.parent?.postMessage({ type: 'GAME_STARTED' }, '*');
+        }
+
+        function endGame() {
+            playing = false;
+            finalEl.textContent = Math.floor(score / 10);
+            gameoverEl.classList.add('active');
+            window.parent?.postMessage({ type: 'SCORE_UPDATE', score: Math.floor(score / 10), final: true }, '*');
+        }
+
+        // Controls
+        document.getElementById('left').addEventListener('touchstart', e => { e.preventDefault(); targetLane = Math.max(0, targetLane - 1) });
+        document.getElementById('right').addEventListener('touchstart', e => { e.preventDefault(); targetLane = Math.min(2, targetLane + 1) });
+        document.getElementById('boost').addEventListener('touchstart', e => { e.preventDefault(); boosting = true });
+        document.getElementById('boost').addEventListener('touchend', () => boosting = false);
+        document.getElementById('play').addEventListener('click', startGame);
+        document.getElementById('retry').addEventListener('click', startGame);
+
+        // Keyboard
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowLeft') targetLane = Math.max(0, targetLane - 1);
+            if (e.key === 'ArrowRight') targetLane = Math.min(2, targetLane + 1);
+            if (e.key === ' ') boosting = true;
+        });
+        document.addEventListener('keyup', e => { if (e.key === ' ') boosting = false });
+
+        // Bridge
+        window.addEventListener('message', e => { try { const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; if (d.action === 'LIFECYCLE_PAUSE') playing = false; if (d.action === 'LIFECYCLE_RESUME' && !startEl.classList.contains('hidden')) playing = true } catch (err) { } });
+        window.parent?.postMessage({ type: 'READY' }, '*');
+
+        gameLoop();
+    </script>
+</body>
+
+</html>

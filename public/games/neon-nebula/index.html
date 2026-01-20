@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Nebula</title>
+    <style>
+        :root {
+            --accent: #06B6D4;
+            --bg: #000000;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+
+        canvas {
+            display: block;
+            filter: contrast(1.2) brightness(1.2);
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .score {
+            position: absolute;
+            top: 40px;
+            font-size: 32px;
+            font-weight: 300;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+        }
+
+        #start-overlay {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(40px);
+            padding: 60px;
+            border-radius: 40px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            pointer-events: auto;
+        }
+
+        .btn {
+            background: white;
+            color: black;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 12px;
+            font-weight: 900;
+            cursor: pointer;
+            margin-top: 40px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 40px rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game"></canvas>
+    <div id="ui">
+        <div id="score" class="score">Affinity: 0</div>
+        <div id="start-overlay">
+            <h1 style="margin: 0; letter-spacing: 12px; font-weight: 200;">NEON NEBULA</h1>
+            <p style="opacity: 0.4; letter-spacing: 2px;">TETHER THE LIGHT</p>
+            <button class="btn" onclick="startGame()">ENTER THE ARCH</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+
+        let width, height, particles = [], mouse = { x: -100, y: -100, active: false };
+        let score = 0, state = 'MENU', frame = 0;
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.size = Math.random() * 2 + 1;
+                this.color = `hsl(${Math.random() * 60 + 180}, 80%, 60%)`;
+                this.alpha = Math.random() * 0.5 + 0.2;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (mouse.active) {
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 200) {
+                        this.vx += dx * 0.001;
+                        this.vy += dy * 0.001;
+                        if (state === 'PLAYING') score += 0.01;
+                    }
+                }
+
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+            }
+            draw() {
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function init() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            particles = Array(400).fill().map(() => new Particle());
+
+            // Bridge: Ready Signal
+            window.parent.postMessage(JSON.stringify({ version: "1.0", type: "LIFECYCLE", action: "HEARTBEAT_READY", payload: { engine: "vanilla_js" } }), "*");
+        }
+
+        function startGame() {
+            state = 'PLAYING';
+            document.getElementById('start-overlay').style.display = 'none';
+            score = 0;
+
+            // Bridge: Start Signal
+            window.parent.postMessage(JSON.stringify({ version: "1.0", type: "GAMEPLAY", action: "GAME_START" }), "*");
+        }
+
+        function update() {
+            frame++;
+            particles.forEach(p => p.update());
+            if (state === 'PLAYING' && frame % 60 === 0) {
+                scoreEl.innerText = `Affinity: ${Math.floor(score)}`;
+                // Bridge: Score Update
+                window.parent.postMessage(JSON.stringify({ version: "1.0", type: "GAMEPLAY", action: "SCORE_UPDATE", payload: { score: Math.floor(score) } }), "*");
+
+                if (score > 1000) {
+                    state = 'COMPLETE';
+                    window.parent.postMessage(JSON.stringify({ version: "1.0", type: "GAMEPLAY", action: "GAME_COMPLETE", payload: { points: Math.floor(score), status: "win" } }), "*");
+                }
+            }
+        }
+
+        function draw() {
+            // Background Mesh-ish Gradient
+            const grad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 500);
+            grad.addColorStop(0, '#0F172A');
+            grad.addColorStop(1, '#000000');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw connections
+            if (mouse.active) {
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(6, 182, 212, 0.1)';
+                ctx.lineWidth = 0.5;
+                particles.forEach(p => {
+                    const dx = mouse.x - p.x;
+                    const dy = mouse.y - p.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 150) {
+                        ctx.moveTo(mouse.x, mouse.y);
+                        ctx.lineTo(p.x, p.y);
+                    }
+                });
+                ctx.stroke();
+            }
+
+            particles.forEach(p => p.draw());
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        const handleMove = (e) => {
+            const t = e.touches ? e.touches[0] : e;
+            mouse.x = t.clientX;
+            mouse.y = t.clientY;
+            mouse.active = true;
+        };
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchstart', (e) => { handleMove(e); mouse.active = true; });
+        window.addEventListener('touchend', () => { mouse.active = false; });
+        window.addEventListener('resize', () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; });
+
+        init();
+        loop();
+    </script>
+</body>
+
+</html>

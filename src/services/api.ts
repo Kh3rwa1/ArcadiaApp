@@ -11,7 +11,7 @@ const TUNNEL_URL = 'https://arcadia-api-2025.loca.lt';
 const LOCAL_IP = '192.168.0.101'; // User's current network IP
 
 const API_BASE = Platform.OS === 'web'
-    ? 'http://localhost:8000'
+    ? ''
     : `http://${LOCAL_IP}:8000`; // Preference for local IP over unstable tunnel for local testing
 
 // ═══════════════════════════════════════════════════════════════════════════

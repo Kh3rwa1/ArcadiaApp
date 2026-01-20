@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gravity Shift</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000510;
+            font-family: -apple-system, system-ui, sans-serif;
+            touch-action: none
+        }
+
+        #game {
+            position: absolute;
+            inset: 0
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: env(safe-area-inset-top, 20px) 20px 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10
+        }
+
+        .stat {
+            text-align: center
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(34, 211, 238, 0.8)
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px
+        }
+
+        #gravity {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 48px;
+            text-shadow: 0 0 30px rgba(34, 211, 238, 0.8)
+        }
+
+        #start {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #000510, #050515);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100
+        }
+
+        #start.hidden {
+            display: none
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 40px #22d3ee;
+            letter-spacing: 4px
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            margin-top: 8px
+        }
+
+        .play-btn {
+            margin-top: 40px;
+            padding: 16px 50px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #000510;
+            background: linear-gradient(135deg, #22d3ee, #a78bfa);
+            border: none;
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 4px
+        }
+
+        #gameover {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 5, 16, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100
+        }
+
+        #gameover.active {
+            display: flex
+        }
+
+        .final {
+            font-size: 64px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #22d3ee, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        .retry-btn {
+            margin-top: 30px;
+            padding: 14px 40px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 3px
+        }
+
+        #shift-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 60px;
+            border-radius: 30px;
+            background: linear-gradient(135deg, #22d3ee, #a78bfa);
+            border: none;
+            font-size: 14px;
+            font-weight: 700;
+            color: #000;
+            text-transform: uppercase;
+            z-index: 50
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game"></canvas>
+    <div id="hud">
+        <div class="stat">
+            <div class="stat-value" id="orbs">0/5</div>
+            <div class="stat-label">orbs</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="level">1</div>
+            <div class="stat-label">level</div>
+        </div>
+    </div>
+    <div id="gravity">⬇️</div>
+    <button id="shift-btn">SHIFT</button>
+    <div id="start">
+        <div class="title">GRAVITY</div>
+        <div class="subtitle">Zero-G Platformer</div>
+        <button class="play-btn" id="play">LAUNCH</button>
+    </div>
+    <div id="gameover">
+        <div class="final" id="final">0</div>
+        <div style="color:rgba(255,255,255,0.5);margin-top:10px">ORBS COLLECTED</div>
+        <button class="retry-btn" id="retry">TRY AGAIN</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
+        const orbsEl = document.getElementById('orbs'), levelEl = document.getElementById('level'), gravityEl = document.getElementById('gravity');
+        const startEl = document.getElementById('start'), gameoverEl = document.getElementById('gameover'), finalEl = document.getElementById('final');
+
+        let W, H, playing = false, level = 1, collected = 0, totalOrbs = 0;
+        let player = { x: 0, y: 0, vx: 0, vy: 0 };
+        let gravity = { x: 0, y: 0.5 }, gravityDir = 0;
+        let platforms = [], orbs = [], particles = [];
+        const DIRS = [{ x: 0, y: 0.5, icon: '⬇️' }, { x: 0, y: -0.5, icon: '⬆️' }, { x: -0.5, y: 0, icon: '⬅️' }, { x: 0.5, y: 0, icon: '➡️' }];
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight }
+        window.addEventListener('resize', resize); resize();
+
+        function generateLevel() {
+            platforms = []; orbs = []; collected = 0; gravityDir = 0; gravity = DIRS[0];
+            const cx = W / 2, cy = H / 2;
+
+            // Central platform
+            platforms.push({ x: cx - 80, y: cy - 20, w: 160, h: 40 });
+
+            // Surrounding platforms
+            const count = 4 + level;
+            for (let i = 0; i < count; i++) {
+                const angle = i * Math.PI * 2 / count;
+                const dist = 120 + level * 20;
+                platforms.push({
+                    x: cx + Math.cos(angle) * dist - 50,
+                    y: cy + Math.sin(angle) * dist - 15,
+                    w: 100, h: 30
+                });
+            }
+
+            // Orbs on platforms
+            totalOrbs = Math.min(5, 3 + level);
+            const orbPlatforms = [...platforms].sort(() => Math.random() - 0.5).slice(0, totalOrbs);
+            orbPlatforms.forEach(p => {
+                orbs.push({ x: p.x + p.w / 2, y: p.y - 15, collected: false });
+            });
+
+            player.x = cx; player.y = cy - 40; player.vx = 0; player.vy = 0;
+            orbsEl.textContent = `0/${totalOrbs}`;
+            gravityEl.textContent = DIRS[0].icon;
+        }
+
+        function shiftGravity() {
+            gravityDir = (gravityDir + 1) % 4;
+            gravity = DIRS[gravityDir];
+            gravityEl.textContent = DIRS[gravityDir].icon;
+            for (let i = 0; i < 10; i++)particles.push({ x: player.x, y: player.y, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, life: 1, color: '#22d3ee' });
+        }
+
+        function update() {
+            if (!playing) return;
+
+            player.vx += gravity.x; player.vy += gravity.y;
+            player.vx *= 0.98; player.vy *= 0.98;
+            player.x += player.vx; player.y += player.vy;
+
+            // Platform collision
+            platforms.forEach(p => {
+                if (player.x > p.x - 15 && player.x < p.x + p.w + 15 && player.y > p.y - 15 && player.y < p.y + p.h + 15) {
+                    const cx = Math.max(p.x, Math.min(p.x + p.w, player.x));
+                    const cy = Math.max(p.y, Math.min(p.y + p.h, player.y));
+                    const dx = player.x - cx, dy = player.y - cy;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist < 15 && dist > 0) {
+                        player.x = cx + dx / dist * 15; player.y = cy + dy / dist * 15;
+                        if (Math.abs(dx) > Math.abs(dy)) player.vx *= -0.3; else player.vy *= -0.3;
+                    }
+                }
+            });
+
+            // Orb collection
+            orbs.forEach(o => {
+                if (!o.collected && Math.hypot(player.x - o.x, player.y - o.y) < 25) {
+                    o.collected = true; collected++;
+                    orbsEl.textContent = `${collected}/${totalOrbs}`;
+                    for (let i = 0; i < 8; i++)particles.push({ x: o.x, y: o.y, vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5, life: 1, color: '#a78bfa' });
+                    if (collected >= totalOrbs) nextLevel();
+                }
+            });
+
+            // Out of bounds
+            if (player.x < -50 || player.x > W + 50 || player.y < -50 || player.y > H + 50) endGame();
+
+            particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life -= 0.03 });
+            particles = particles.filter(p => p.life > 0);
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000510'; ctx.fillRect(0, 0, W, H);
+
+            // Ambient glow
+            const gradient = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, H / 2);
+            gradient.addColorStop(0, 'rgba(34,211,238,0.05)'); gradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = gradient; ctx.fillRect(0, 0, W, H);
+
+            // Platforms
+            platforms.forEach(p => {
+                ctx.fillStyle = '#1a1a2a';
+                ctx.beginPath(); ctx.roundRect(p.x, p.y, p.w, p.h, 8); ctx.fill();
+                ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.roundRect(p.x, p.y, p.w, p.h, 8); ctx.stroke();
+            });
+
+            // Orbs
+            orbs.filter(o => !o.collected).forEach(o => {
+                ctx.fillStyle = '#a78bfa'; ctx.shadowColor = '#a78bfa'; ctx.shadowBlur = 15;
+                ctx.beginPath(); ctx.arc(o.x, o.y, 12, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            // Particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+            }); ctx.globalAlpha = 1;
+
+            // Player
+            ctx.fillStyle = '#fff'; ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 15;
+            ctx.beginPath(); ctx.arc(player.x, player.y, 15, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop) }
+
+        function startGame() { playing = true; level = 1; levelEl.textContent = '1'; generateLevel(); startEl.classList.add('hidden'); gameoverEl.classList.remove('active'); window.parent?.postMessage({ type: 'GAME_STARTED' }, '*') }
+        function nextLevel() {
+            if (level >= 3) { endGame(); return }
+            level++; levelEl.textContent = level; generateLevel();
+        }
+        function endGame() { playing = false; finalEl.textContent = collected + (level - 1) * 5; gameoverEl.classList.add('active'); window.parent?.postMessage({ type: 'SCORE_UPDATE', score: collected + (level - 1) * 5, final: true }, '*') }
+
+        document.getElementById('shift-btn').addEventListener('click', shiftGravity);
+        document.getElementById('shift-btn').addEventListener('touchstart', e => { e.preventDefault(); shiftGravity() });
+        document.getElementById('play').addEventListener('click', startGame);
+        document.getElementById('retry').addEventListener('click', startGame);
+        document.addEventListener('keydown', e => { if (e.key === ' ') shiftGravity() });
+
+        window.addEventListener('message', e => { try { const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; if (d.action === 'LIFECYCLE_PAUSE') playing = false; if (d.action === 'LIFECYCLE_RESUME' && startEl.classList.contains('hidden')) playing = true } catch (err) { } });
+        window.parent?.postMessage({ type: 'READY' }, '*');
+
+        gameLoop();
+    </script>
+</body>
+
+</html>

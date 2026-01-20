@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Voxel Runner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0d0d1a;
+            font-family: 'Inter', system-ui, sans-serif;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-score {
+            font-size: 56px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(236, 72, 153, 0.8), 0 4px 15px rgba(0, 0, 0, 0.5);
+            letter-spacing: 4px;
+        }
+
+        #game-over,
+        #start-screen {
+            position: absolute;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        #game-over {
+            background: rgba(13, 13, 26, 0.95);
+            backdrop-filter: blur(20px);
+        }
+
+        #game-over.active,
+        #start-screen.active {
+            display: flex;
+        }
+
+        .game-over-title,
+        .game-subtitle {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            margin-bottom: 10px;
+        }
+
+        .final-score,
+        .game-title {
+            font-size: 64px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 50px rgba(236, 72, 153, 0.9);
+        }
+
+        .game-title {
+            letter-spacing: 6px;
+        }
+
+        .game-subtitle {
+            margin-bottom: 50px;
+            letter-spacing: 8px;
+        }
+
+        .restart-btn,
+        .start-btn {
+            margin-top: 40px;
+            padding: 18px 56px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            background: transparent;
+            border: 2px solid rgba(236, 72, 153, 0.8);
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            transition: all 0.2s;
+        }
+
+        .restart-btn {
+            background: linear-gradient(135deg, #EC4899, #8B5CF6);
+            border: none;
+            color: #0d0d1a;
+        }
+
+        .restart-btn:active,
+        .start-btn:active {
+            transform: scale(0.95);
+        }
+
+        #start-screen {
+            background: linear-gradient(180deg, rgba(13, 13, 26, 0.95), rgba(13, 13, 26, 1));
+        }
+
+        #start-screen.active {
+            display: flex;
+        }
+
+        .touch-zone {
+            position: absolute;
+            bottom: 0;
+            width: 50%;
+            height: 50%;
+            z-index: 50;
+        }
+
+        #touch-left {
+            left: 0;
+        }
+
+        #touch-right {
+            right: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="hud">
+            <div class="hud-score" id="score">0</div>
+        </div>
+        <div id="game-over">
+            <div class="game-over-title">Run Complete</div>
+            <div class="final-score" id="final-score">0</div>
+            <button class="restart-btn" id="restart-btn">Run Again</button>
+        </div>
+        <div id="start-screen" class="active">
+            <div class="game-title">VOXEL RUNNER</div>
+            <div class="game-subtitle">Neon City Escape</div>
+            <button class="start-btn" id="start-btn">BEGIN RUN</button>
+        </div>
+        <div id="touch-left" class="touch-zone"></div>
+        <div id="touch-right" class="touch-zone"></div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════════
+        // VOXEL RUNNER - Canvas2D Mobile-Optimized Version
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const gameOverEl = document.getElementById('game-over');
+        const finalScoreEl = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        const startScreen = document.getElementById('start-screen');
+        const startBtn = document.getElementById('start-btn');
+        const touchLeft = document.getElementById('touch-left');
+        const touchRight = document.getElementById('touch-right');
+
+        let W, H, dpr;
+        const LANE_COUNT = 3;
+        let laneWidth;
+        let player = { lane: 1, x: 0, targetX: 0, y: 0, vy: 0, jumping: false };
+        let obstacles = [];
+        let buildings = [];
+        let gridLines = [];
+        let score = 0;
+        let speed = 8;
+        let isGameOver = false;
+        let isPlaying = false;
+        let lastTime = 0;
+
+        function resize() {
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            W = window.innerWidth;
+            H = window.innerHeight;
+            canvas.width = W * dpr;
+            canvas.height = H * dpr;
+            canvas.style.width = W + 'px';
+            canvas.style.height = H + 'px';
+            ctx.scale(dpr, dpr);
+
+            laneWidth = W * 0.25;
+            player.y = H * 0.75;
+        }
+
+        function getLaneX(lane) {
+            return W / 2 + (lane - 1) * laneWidth;
+        }
+
+        function init() {
+            resize();
+            window.addEventListener('resize', resize);
+
+            // Initialize grid lines
+            for (let i = 0; i < 20; i++) {
+                gridLines.push({ y: i * 40 });
+            }
+
+            // Initialize buildings
+            for (let i = 0; i < 15; i++) {
+                buildings.push({
+                    x: Math.random() > 0.5 ? -W * 0.3 - Math.random() * W * 0.2 : W + Math.random() * W * 0.2,
+                    y: H * 0.3 + Math.random() * H * 0.4,
+                    width: 30 + Math.random() * 60,
+                    height: 100 + Math.random() * 200,
+                    glow: Math.random() > 0.6
+                });
+            }
+
+            // Player position
+            player.lane = 1;
+            player.x = getLaneX(1);
+            player.targetX = player.x;
+
+            // Event listeners
+            touchLeft.addEventListener('touchstart', moveLeft);
+            touchRight.addEventListener('touchstart', moveRight);
+            document.addEventListener('keydown', onKeyDown);
+            restartBtn.addEventListener('click', restartGame);
+            startBtn.addEventListener('click', startGame);
+
+            // Signal READY
+            window.parent?.postMessage({ type: 'READY' }, '*');
+
+            // Arcadia Bridge
+            window.addEventListener('message', (e) => {
+                try {
+                    const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+                    if (data.action === 'LIFECYCLE_PAUSE') pauseGame();
+                    if (data.action === 'LIFECYCLE_RESUME') resumeGame();
+                    if (data.action === 'LIFECYCLE_STOP') pauseGame();
+                } catch (err) { }
+            });
+            window.addEventListener('ArcadiaBridge', (e) => {
+                if (e.detail?.action === 'LIFECYCLE_PAUSE') pauseGame();
+                if (e.detail?.action === 'LIFECYCLE_RESUME') resumeGame();
+            });
+
+            renderStatic();
+        }
+
+        function renderStatic() {
+            ctx.fillStyle = '#0d0d1a';
+            ctx.fillRect(0, 0, W, H);
+
+            // Draw gradient horizon
+            const gradient = ctx.createLinearGradient(0, 0, 0, H);
+            gradient.addColorStop(0, '#0d0d1a');
+            gradient.addColorStop(0.5, '#1a1a3e');
+            gradient.addColorStop(1, '#0d0d1a');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, W, H);
+        }
+
+        function moveLeft() {
+            if (player.lane > 0) {
+                player.lane--;
+                player.targetX = getLaneX(player.lane);
+            }
+        }
+
+        function moveRight() {
+            if (player.lane < 2) {
+                player.lane++;
+                player.targetX = getLaneX(player.lane);
+            }
+        }
+
+        function jump() {
+            if (!player.jumping) {
+                player.jumping = true;
+                player.vy = -15;
+            }
+        }
+
+        function onKeyDown(e) {
+            if (!isPlaying) return;
+            if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft();
+            if (e.key === 'ArrowRight' || e.key === 'd') moveRight();
+            if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') jump();
+        }
+
+        function spawnObstacle() {
+            const lane = Math.floor(Math.random() * LANE_COUNT);
+            const isFloating = Math.random() > 0.5;
+            obstacles.push({
+                lane: lane,
+                x: getLaneX(lane),
+                y: -100,
+                width: laneWidth * 0.6,
+                height: isFloating ? 40 : 60,
+                floating: isFloating,
+                rotation: 0
+            });
+        }
+
+        function gameLoop(time) {
+            if (!isPlaying) return;
+
+            const dt = Math.min((time - lastTime) / 16.67, 3);
+            lastTime = time;
+
+            update(dt);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update(dt) {
+            // Increase speed
+            speed = Math.min(20, 8 + score * 0.002);
+
+            // Player movement
+            player.x += (player.targetX - player.x) * 0.15 * dt;
+
+            // Jump physics
+            if (player.jumping) {
+                player.vy += 0.8 * dt;
+                player.y += player.vy * dt;
+                if (player.y >= H * 0.75) {
+                    player.y = H * 0.75;
+                    player.jumping = false;
+                    player.vy = 0;
+                }
+            }
+
+            // Grid lines
+            gridLines.forEach(line => {
+                line.y += speed * dt;
+                if (line.y > H) line.y -= 800;
+            });
+
+            // Buildings
+            buildings.forEach(b => {
+                b.y += speed * 0.3 * dt;
+                if (b.y > H + b.height) {
+                    b.y = -b.height;
+                    b.height = 100 + Math.random() * 200;
+                    b.glow = Math.random() > 0.6;
+                }
+            });
+
+            // Spawn obstacles
+            if (Math.random() < 0.018 * dt) spawnObstacle();
+
+            // Update obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const o = obstacles[i];
+                o.y += speed * dt;
+                if (o.floating) o.rotation += 0.05 * dt;
+
+                // Collision
+                const playerHeight = player.jumping ? player.y : H * 0.75;
+                const hitY = o.floating ? playerHeight < H * 0.7 : playerHeight > H * 0.65;
+
+                if (Math.abs(player.x - o.x) < laneWidth * 0.4 &&
+                    o.y > H * 0.65 && o.y < H * 0.85 && hitY) {
+                    endGame();
+                    return;
+                }
+
+                // Remove if offscreen
+                if (o.y > H + 100) {
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            // Score
+            score++;
+            scoreEl.textContent = Math.floor(score / 10);
+        }
+
+        function render() {
+            // Background
+            const gradient = ctx.createLinearGradient(0, 0, 0, H);
+            gradient.addColorStop(0, '#0d0d1a');
+            gradient.addColorStop(0.4, '#1a1a3e');
+            gradient.addColorStop(1, '#0d0d1a');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, W, H);
+
+            // Buildings (background)
+            buildings.forEach(b => {
+                ctx.fillStyle = b.glow ? '#2a2a4e' : '#1a1a2e';
+                ctx.fillRect(b.x, b.y, b.width, b.height);
+                if (b.glow) {
+                    ctx.fillStyle = 'rgba(139, 92, 246, 0.3)';
+                    ctx.fillRect(b.x, b.y, b.width, 3);
+                }
+            });
+
+            // Road
+            const roadWidth = laneWidth * 3.5;
+            const roadX = W / 2 - roadWidth / 2;
+            ctx.fillStyle = 'rgba(20, 20, 40, 0.9)';
+            ctx.fillRect(roadX, H * 0.5, roadWidth, H * 0.5);
+
+            // Grid lines (perspective effect)
+            ctx.strokeStyle = 'rgba(139, 92, 246, 0.2)';
+            ctx.lineWidth = 1;
+            gridLines.forEach(line => {
+                if (line.y > H * 0.5) {
+                    ctx.beginPath();
+                    ctx.moveTo(roadX, line.y);
+                    ctx.lineTo(roadX + roadWidth, line.y);
+                    ctx.stroke();
+                }
+            });
+
+            // Lane dividers
+            ctx.strokeStyle = 'rgba(236, 72, 153, 0.3)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 2; i++) {
+                const x = W / 2 + (i - 0.5) * laneWidth;
+                ctx.beginPath();
+                ctx.setLineDash([20, 20]);
+                ctx.moveTo(x, H * 0.5);
+                ctx.lineTo(x, H);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+
+            // Obstacles
+            obstacles.forEach(o => {
+                ctx.save();
+                ctx.translate(o.x, o.y);
+                if (o.floating) {
+                    ctx.rotate(o.rotation);
+                    // Floating cube
+                    ctx.fillStyle = '#ff6b00';
+                    ctx.shadowColor = '#ff6b00';
+                    ctx.shadowBlur = 20;
+                    ctx.fillRect(-o.width / 2, -o.height / 2, o.width, o.height);
+                } else {
+                    // Barrier
+                    ctx.fillStyle = '#ff0040';
+                    ctx.shadowColor = '#ff0040';
+                    ctx.shadowBlur = 15;
+                    ctx.fillRect(-o.width / 2, -o.height / 2, o.width, o.height);
+                    // Stripes
+                    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                    ctx.fillRect(-o.width / 2, -o.height / 2, o.width, 5);
+                }
+                ctx.restore();
+            });
+
+            // Player
+            ctx.save();
+            ctx.translate(player.x, player.y);
+
+            // Glow
+            ctx.shadowColor = '#EC4899';
+            ctx.shadowBlur = 30;
+
+            // Body
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(-20, -50, 40, 50);
+
+            // Accent
+            ctx.fillStyle = '#EC4899';
+            ctx.fillRect(-20, -50, 40, 5);
+            ctx.fillRect(-15, -45, 5, 40);
+            ctx.fillRect(10, -45, 5, 40);
+
+            ctx.restore();
+        }
+
+        function startGame() {
+            startScreen.classList.remove('active');
+            isPlaying = true;
+            isGameOver = false;
+            score = 0;
+            speed = 8;
+            obstacles = [];
+            player.lane = 1;
+            player.x = getLaneX(1);
+            player.targetX = player.x;
+            player.y = H * 0.75;
+            player.jumping = false;
+            scoreEl.textContent = '0';
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+            window.parent?.postMessage({ type: 'GAME_STARTED' }, '*');
+        }
+
+        function endGame() {
+            isPlaying = false;
+            isGameOver = true;
+            const finalScore = Math.floor(score / 10);
+            finalScoreEl.textContent = finalScore;
+            gameOverEl.classList.add('active');
+            window.parent?.postMessage({ type: 'SCORE_UPDATE', score: finalScore, final: true }, '*');
+        }
+
+        function restartGame() {
+            gameOverEl.classList.remove('active');
+            startGame();
+        }
+
+        function pauseGame() { isPlaying = false; }
+        function resumeGame() {
+            if (!isGameOver && !startScreen.classList.contains('active')) {
+                isPlaying = true;
+                lastTime = performance.now();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

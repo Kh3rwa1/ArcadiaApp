@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cyber Golf</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #050510;
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        #game-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 24px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-strokes {
+            font-size: 18px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .hud-strokes span {
+            font-size: 32px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(16, 185, 129, 0.8);
+        }
+
+        .hud-hole {
+            font-size: 16px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.6);
+            letter-spacing: 1px;
+        }
+
+        .hud-hole span {
+            color: #10B981;
+        }
+
+        /* Power Bar */
+        #power-bar-container {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+
+        #power-bar-container.active {
+            opacity: 1;
+        }
+
+        #power-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #10B981, #F59E0B, #EF4444);
+            width: 0%;
+            transition: width 0.05s linear;
+        }
+
+        /* Win Screen */
+        #win-screen {
+            position: absolute;
+            inset: 0;
+            background: rgba(5, 5, 16, 0.95);
+            backdrop-filter: blur(20px);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        #win-screen.active {
+            display: flex;
+        }
+
+        .win-title {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            margin-bottom: 10px;
+        }
+
+        .win-score {
+            font-size: 72px;
+            font-weight: 900;
+            color: #10B981;
+            text-shadow: 0 0 50px rgba(16, 185, 129, 0.8);
+        }
+
+        .win-message {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 10px;
+        }
+
+        .next-btn {
+            margin-top: 40px;
+            padding: 18px 56px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #050510;
+            background: linear-gradient(135deg, #10B981, #34D399);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: transform 0.2s;
+        }
+
+        .next-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Start Screen */
+        #start-screen {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(5, 5, 16, 0.95) 0%, rgba(5, 5, 16, 1) 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        #start-screen.hidden {
+            display: none;
+        }
+
+        .game-title {
+            font-size: 52px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 60px rgba(16, 185, 129, 1);
+            margin-bottom: 8px;
+            letter-spacing: 4px;
+        }
+
+        .game-subtitle {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            margin-bottom: 60px;
+        }
+
+        .start-btn {
+            padding: 22px 70px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #050510;
+            background: #10B981;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            transition: all 0.3s;
+        }
+
+        .start-btn:hover {
+            background: #34D399;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <div id="hud">
+            <div class="hud-strokes">Strokes: <span id="strokes">0</span></div>
+            <div class="hud-hole">Hole <span id="hole">1</span> / 3</div>
+        </div>
+
+        <div id="power-bar-container">
+            <div id="power-bar"></div>
+        </div>
+
+        <div id="win-screen">
+            <div class="win-title">Hole Complete</div>
+            <div class="win-score" id="win-strokes">3</div>
+            <div class="win-message" id="win-message">Par</div>
+            <button class="next-btn" id="next-btn">Next Hole</button>
+        </div>
+
+        <div id="start-screen">
+            <div class="game-title">CYBER GOLF</div>
+            <div class="game-subtitle">Futuristic Mini Golf</div>
+            <button class="start-btn" id="start-btn">TEE OFF</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════════
+        // CYBER GOLF - Babylon.js Mini Golf
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        const container = document.getElementById('game-container');
+        const strokesEl = document.getElementById('strokes');
+        const holeEl = document.getElementById('hole');
+        const powerBarContainer = document.getElementById('power-bar-container');
+        const powerBar = document.getElementById('power-bar');
+        const winScreen = document.getElementById('win-screen');
+        const winStrokesEl = document.getElementById('win-strokes');
+        const winMessageEl = document.getElementById('win-message');
+        const nextBtn = document.getElementById('next-btn');
+        const startScreen = document.getElementById('start-screen');
+        const startBtn = document.getElementById('start-btn');
+
+        let canvas, engine, scene, camera;
+        let ball, ground, hole;
+        let strokes = 0;
+        let currentHole = 1;
+        let isAiming = false;
+        let power = 0;
+        let powerDirection = 1;
+        let aimStart = { x: 0, y: 0 };
+        let isPlaying = false;
+        let ballMoving = false;
+
+        const HOLES = [
+            { par: 2, ballPos: [0, 0.5, -8], holePos: [0, 0.1, 8], obstacles: [] },
+            { par: 3, ballPos: [-5, 0.5, -8], holePos: [5, 0.1, 8], obstacles: [[0, 0.5, 0, 2, 1, 0.5]] },
+            { par: 3, ballPos: [0, 0.5, -10], holePos: [0, 0.1, 10], obstacles: [[-3, 0.5, 0, 1, 1, 6], [3, 0.5, 0, 1, 1, 6]] }
+        ];
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Babylon.js Setup
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function init() {
+            canvas = document.createElement('canvas');
+            container.insertBefore(canvas, container.firstChild);
+
+            engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+            createScene();
+
+            engine.runRenderLoop(() => {
+                if (scene && isPlaying) {
+                    update();
+                    scene.render();
+                }
+            });
+
+            window.addEventListener('resize', () => engine.resize());
+
+            // Input
+            canvas.addEventListener('pointerdown', onPointerDown);
+            canvas.addEventListener('pointermove', onPointerMove);
+            canvas.addEventListener('pointerup', onPointerUp);
+
+            startBtn.addEventListener('click', startGame);
+            nextBtn.addEventListener('click', nextHole);
+
+            // Initial render
+            scene.render();
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // Arcadia Bridge Integration
+            // ═══════════════════════════════════════════════════════════════════════════
+            window.addEventListener('message', (e) => {
+                try {
+                    const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+                    if (data.type === 'LIFECYCLE') {
+                        if (data.action === 'LIFECYCLE_PAUSE') pauseGame();
+                        if (data.action === 'LIFECYCLE_RESUME') resumeGame();
+                    if (data.action === 'LIFECYCLE_STOP') pauseGame();
+                    }
+                } catch (err) { }
+            });
+            window.addEventListener('ArcadiaBridge', (e) => {
+                const data = e.detail;
+                if (data.action === 'LIFECYCLE_PAUSE') pauseGame();
+                if (data.action === 'LIFECYCLE_RESUME') resumeGame();
+                    if (data.action === 'LIFECYCLE_STOP') pauseGame();
+            });
+            window.parent?.postMessage({ type: 'READY' }, '*');
+        }
+
+        function createScene() {
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.06, 1);
+            scene.ambientColor = new BABYLON.Color3(0.1, 0.1, 0.2);
+
+            // Physics
+            scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), new BABYLON.CannonJSPlugin());
+
+            // Camera
+            camera = new BABYLON.ArcRotateCamera('camera', Math.PI / 2, Math.PI / 3, 25, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 10;
+            camera.upperRadiusLimit = 40;
+            camera.lowerBetaLimit = 0.3;
+            camera.upperBetaLimit = Math.PI / 2.2;
+
+            // Lights
+            const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
+            hemi.intensity = 0.5;
+            hemi.groundColor = new BABYLON.Color3(0.05, 0.1, 0.15);
+
+            const point = new BABYLON.PointLight('point', new BABYLON.Vector3(0, 10, 0), scene);
+            point.intensity = 0.8;
+            point.diffuse = new BABYLON.Color3(0.1, 0.8, 0.5);
+
+            // Ground
+            ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 20, height: 30 }, scene);
+            const groundMat = new BABYLON.StandardMaterial('groundMat', scene);
+            groundMat.diffuseColor = new BABYLON.Color3(0.05, 0.15, 0.1);
+            groundMat.emissiveColor = new BABYLON.Color3(0.02, 0.08, 0.05);
+            groundMat.specularColor = new BABYLON.Color3(0.1, 0.3, 0.2);
+            ground.material = groundMat;
+            ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, friction: 0.8 }, scene);
+
+            // Grid lines
+            const gridMat = new BABYLON.StandardMaterial('gridMat', scene);
+            gridMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.2);
+            gridMat.alpha = 0.3;
+            for (let i = -10; i <= 10; i += 2) {
+                const lineH = BABYLON.MeshBuilder.CreateLines('lineH', { points: [new BABYLON.Vector3(-10, 0.01, i), new BABYLON.Vector3(10, 0.01, i)] }, scene);
+                lineH.color = new BABYLON.Color3(0.1, 0.5, 0.3);
+                const lineV = BABYLON.MeshBuilder.CreateLines('lineV', { points: [new BABYLON.Vector3(i, 0.01, -15), new BABYLON.Vector3(i, 0.01, 15)] }, scene);
+                lineV.color = new BABYLON.Color3(0.1, 0.5, 0.3);
+            }
+
+            // Ball
+            ball = BABYLON.MeshBuilder.CreateSphere('ball', { diameter: 0.5 }, scene);
+            const ballMat = new BABYLON.StandardMaterial('ballMat', scene);
+            ballMat.diffuseColor = new BABYLON.Color3(1, 1, 1);
+            ballMat.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+            ball.material = ballMat;
+            ball.physicsImpostor = new BABYLON.PhysicsImpostor(ball, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0.5, restitution: 0.3 }, scene);
+
+            // Hole
+            hole = BABYLON.MeshBuilder.CreateCylinder('hole', { diameter: 1.2, height: 0.2 }, scene);
+            const holeMat = new BABYLON.StandardMaterial('holeMat', scene);
+            holeMat.diffuseColor = new BABYLON.Color3(0.02, 0.02, 0.02);
+            holeMat.emissiveColor = new BABYLON.Color3(0.05, 0.2, 0.1);
+            hole.material = holeMat;
+
+            // Glow layer
+            const glow = new BABYLON.GlowLayer('glow', scene);
+            glow.intensity = 0.5;
+
+            setupHole(0);
+        }
+
+        function setupHole(index) {
+            const holeData = HOLES[index];
+            ball.position = new BABYLON.Vector3(...holeData.ballPos);
+            ball.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
+            ball.physicsImpostor.setAngularVelocity(BABYLON.Vector3.Zero());
+
+            hole.position = new BABYLON.Vector3(...holeData.holePos);
+
+            // Clear old obstacles
+            scene.meshes.filter(m => m.name.startsWith('obstacle')).forEach(m => m.dispose());
+
+            // Add obstacles
+            holeData.obstacles.forEach((obs, i) => {
+                const obstacle = BABYLON.MeshBuilder.CreateBox(`obstacle${i}`, { width: obs[3], height: obs[4], depth: obs[5] }, scene);
+                obstacle.position = new BABYLON.Vector3(obs[0], obs[1], obs[2]);
+                const obsMat = new BABYLON.StandardMaterial(`obsMat${i}`, scene);
+                obsMat.diffuseColor = new BABYLON.Color3(0.3, 0.1, 0.4);
+                obsMat.emissiveColor = new BABYLON.Color3(0.15, 0.05, 0.2);
+                obstacle.material = obsMat;
+                obstacle.physicsImpostor = new BABYLON.PhysicsImpostor(obstacle, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, friction: 0.5 }, scene);
+            });
+
+            camera.setTarget(ball.position);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Game Loop
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function update() {
+            if (!ball) return;
+
+            // Check if ball moving
+            const velocity = ball.physicsImpostor.getLinearVelocity();
+            const speed = velocity.length();
+            ballMoving = speed > 0.1;
+
+            // Stop ball if very slow
+            if (speed > 0 && speed < 0.1) {
+                ball.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
+                ball.physicsImpostor.setAngularVelocity(BABYLON.Vector3.Zero());
+            }
+
+            // Check if in hole
+            const dist = BABYLON.Vector3.Distance(ball.position, hole.position);
+            if (dist < 0.6 && !ballMoving) {
+                holeComplete();
+            }
+
+            // Power bar animation while aiming
+            if (isAiming) {
+                power += powerDirection * 2;
+                if (power >= 100) { power = 100; powerDirection = -1; }
+                if (power <= 0) { power = 0; powerDirection = 1; }
+                powerBar.style.width = power + '%';
+            }
+
+            // Fall off edge reset
+            if (ball.position.y < -5) {
+                ball.position = new BABYLON.Vector3(...HOLES[currentHole - 1].ballPos);
+                ball.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Input
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function onPointerDown(e) {
+            if (!isPlaying || ballMoving) return;
+            isAiming = true;
+            power = 0;
+            powerDirection = 1;
+            aimStart = { x: e.clientX, y: e.clientY };
+            powerBarContainer.classList.add('active');
+        }
+
+        function onPointerMove(e) {
+            // Aim direction visualization could go here
+        }
+
+        function onPointerUp(e) {
+            if (!isAiming) return;
+            isAiming = false;
+            powerBarContainer.classList.remove('active');
+
+            // Calculate direction
+            const dx = e.clientX - aimStart.x;
+            const dy = e.clientY - aimStart.y;
+            const angle = Math.atan2(dx, dy);
+
+            // Apply force
+            const force = (power / 100) * 15;
+            const impulse = new BABYLON.Vector3(
+                Math.sin(angle) * force,
+                0,
+                Math.cos(angle) * force
+            );
+            ball.physicsImpostor.applyImpulse(impulse, ball.getAbsolutePosition());
+
+            strokes++;
+            strokesEl.textContent = strokes;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Game State
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            isPlaying = true;
+            strokes = 0;
+            currentHole = 1;
+            strokesEl.textContent = '0';
+            holeEl.textContent = '1';
+            setupHole(0);
+
+            window.parent?.postMessage({ type: 'GAME_STARTED' }, '*');
+        }
+
+        function holeComplete() {
+            isPlaying = false;
+            const par = HOLES[currentHole - 1].par;
+            const diff = strokes - par;
+
+            winStrokesEl.textContent = strokes;
+            if (diff <= -2) winMessageEl.textContent = 'Eagle! 🦅';
+            else if (diff === -1) winMessageEl.textContent = 'Birdie! 🐦';
+            else if (diff === 0) winMessageEl.textContent = 'Par';
+            else if (diff === 1) winMessageEl.textContent = 'Bogey';
+            else winMessageEl.textContent = 'Double Bogey+';
+
+            winScreen.classList.add('active');
+
+            if (currentHole >= 3) {
+                nextBtn.textContent = 'Finish';
+                window.parent?.postMessage({ type: 'SCORE_UPDATE', score: strokes, final: true }, '*');
+            }
+        }
+
+        function nextHole() {
+            winScreen.classList.remove('active');
+
+            if (currentHole >= 3) {
+                // End game
+                startScreen.classList.remove('hidden');
+                return;
+            }
+
+            currentHole++;
+            holeEl.textContent = currentHole;
+            strokes = 0;
+            strokesEl.textContent = '0';
+            setupHole(currentHole - 1);
+            isPlaying = true;
+        }
+
+        function pauseGame() {
+            isPlaying = false;
+        }
+
+        function resumeGame() {
+            if (startScreen.classList.contains('hidden') && !winScreen.classList.contains('active')) {
+                isPlaying = true;
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

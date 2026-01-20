@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Neon Clicker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: #0ff;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            min-height: 100dvh;
+            /* Dynamic viewport height for mobile */
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: clamp(16px, 4vh, 32px);
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+
+        #clicker {
+            width: clamp(120px, 35vw, 180px);
+            height: clamp(120px, 35vw, 180px);
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(0, 255, 255, 0.2), transparent 60%);
+            border: 3px solid #0ff;
+            box-shadow:
+                0 0 30px rgba(0, 255, 255, 0.5),
+                inset 0 0 20px rgba(0, 255, 255, 0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
+            font-weight: 700;
+            letter-spacing: 2px;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #clicker:active {
+            transform: scale(0.92);
+            box-shadow:
+                0 0 50px rgba(0, 255, 255, 0.8),
+                inset 0 0 30px rgba(0, 255, 255, 0.4);
+        }
+
+        .score-container {
+            text-align: center;
+        }
+
+        .score {
+            font-size: clamp(3rem, 12vw, 5rem);
+            font-weight: 900;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+
+        .highscore {
+            font-size: clamp(0.8rem, 3vw, 1rem);
+            color: rgba(0, 255, 255, 0.6);
+            margin-top: 8px;
+        }
+
+        .stats {
+            font-size: clamp(0.75rem, 2.5vw, 0.9rem);
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: clamp(16px, 4vh, 32px);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="game-container">
+        <div class="score-container">
+            <div class="score" id="score">0</div>
+            <div class="highscore" id="highscore">Best: 0</div>
+        </div>
+        <div id="clicker">TAP</div>
+        <div class="stats" id="stats">Session: 0</div>
+    </div>
+
+    <script>
+        // Game State
+        let count = 0;
+        let highScore = 0;
+        let sessionScore = 0;
+        let isPaused = false;
+
+        // DOM Elements
+        const scoreEl = document.getElementById('score');
+        const highscoreEl = document.getElementById('highscore');
+        const statsEl = document.getElementById('stats');
+        const clickerEl = document.getElementById('clicker');
+
+        // ArcadiaBridge helpers
+        const ArcadiaBridge = {
+            postMessage(action, payload = {}, type = 'GAMEPLAY') {
+                const message = { version: '1.1', type, action, payload };
+                if (window.ReactNativeWebView) {
+                    window.ReactNativeWebView.postMessage(JSON.stringify(message));
+                } else {
+                    window.parent?.postMessage(message, '*');
+                }
+            },
+            haptic(type = 'impactLight') {
+                this.postMessage('UX_HAPTIC', { type }, 'UX');
+            },
+            reportScore(score, level = 1) {
+                this.postMessage('STATE_UPDATE', { key: 'score', score, level });
+            },
+            saveState(state) {
+                this.postMessage('STATE_UPDATE', { key: 'gameState', value: state });
+            },
+            flowStart() {
+                this.postMessage('FLOW_START', {});
+            },
+            complete(result) {
+                this.postMessage('FLOW_COMPLETE', { ...result, status: 'complete' });
+            }
+        };
+
+        // Load saved state from injected config
+        function loadSavedState() {
+            if (window.ARCADIA_CONFIG?.savedState) {
+                const saved = window.ARCADIA_CONFIG.savedState;
+                count = saved.count || 0;
+                highScore = saved.highScore || 0;
+                scoreEl.innerText = count;
+                highscoreEl.innerText = `Best: ${highScore}`;
+            }
+        }
+
+        // Handle click
+        clickerEl.onclick = () => {
+            if (isPaused) return;
+
+            count++;
+            sessionScore++;
+            scoreEl.innerText = count;
+            statsEl.innerText = `Session: ${sessionScore}`;
+
+            // Update high score
+            if (count > highScore) {
+                highScore = count;
+                highscoreEl.innerText = `Best: ${highScore}`;
+            }
+
+            // Haptic feedback
+            ArcadiaBridge.haptic('impactLight');
+
+            // Report score every 10 clicks
+            if (count % 10 === 0) {
+                ArcadiaBridge.reportScore(count, 1);
+                ArcadiaBridge.saveState({ count, highScore });
+            }
+        };
+
+        // Bridge lifecycle hooks
+        window.addEventListener('ArcadiaBridge', (e) => {
+            const { action } = e.detail || {};
+            if (action === 'LIFECYCLE_PAUSE') {
+                isPaused = true;
+                clickerEl.style.opacity = '0.5';
+            } else if (action === 'LIFECYCLE_RESUME') {
+                isPaused = false;
+                clickerEl.style.opacity = '1';
+            } else if (action === 'APP_RESTART') {
+                count = 0;
+                sessionScore = 0;
+                scoreEl.innerText = '0';
+                statsEl.innerText = 'Session: 0';
+            }
+        });
+
+        // Initialize
+        setTimeout(() => {
+            loadSavedState();
+            ArcadiaBridge.flowStart();
+            // Signal ready
+            ArcadiaBridge.postMessage('HEARTBEAT_READY', { type: 'game', engine: 'vanilla' }, 'LIFECYCLE');
+        }, 100);
+    </script>
+</body>
+
+</html>
