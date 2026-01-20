@@ -25,6 +25,7 @@ import { useThermalState, getRenderBatchSize } from '../hooks/useThermalState';
 import DiscoverScreen from './DiscoverScreen';
 import LibraryScreen from './LibraryScreen';
 import ProfileScreen from './ProfileScreen';
+import AdminScreen from './AdminScreen';
 
 // Categories
 
@@ -36,7 +37,11 @@ const NAV_TABS = [
     { id: 'profile', icon: 'person-outline', activeIcon: 'person', label: 'Profile' },
 ];
 
-export default function GameFeedScreen() {
+interface GameFeedProps {
+    initialTab?: string;
+}
+
+export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
     // Dynamic dimensions for responsive layout
     const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
 
@@ -48,7 +53,7 @@ export default function GameFeedScreen() {
     const [percentile, setPercentile] = useState<number | null>(null);
     const [showResults, setShowResults] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('all');
-    const [activeTab, setActiveTab] = useState('home');
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [showDiscover, setShowDiscover] = useState(false);
@@ -525,7 +530,8 @@ export default function GameFeedScreen() {
         switch (activeTab) {
             case 'home': return renderFeed();
             case 'library': return <LibraryScreen onSelectCategory={navigateToCategory} onLaunchGame={launchGame} />;
-            case 'profile': return <ProfileScreen />;
+            case 'profile': return <ProfileScreen onAdminPress={() => setActiveTab('admin')} />;
+            case 'admin': return <AdminScreen onBack={() => setActiveTab('profile')} />;
             default: return renderFeed();
         }
     };

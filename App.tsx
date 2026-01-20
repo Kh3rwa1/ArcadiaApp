@@ -5,9 +5,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SplashScreen from './src/screens/SplashScreen';
 import GameFeedScreen from './src/screens/GameFeedScreen';
 
+import * as Linking from 'expo-linking';
+
 // Pure immersive experience - no navigation framework needed
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+
+  // Simple URL routing
+  const url = Linking.useURL();
+  const path = url ? Linking.parse(url).path : null;
+  const isAdminRoute = path === 'admin';
 
   return (
     <SafeAreaProvider>
@@ -16,7 +23,7 @@ export default function App() {
         {showSplash ? (
           <SplashScreen onComplete={() => setShowSplash(false)} />
         ) : (
-          <GameFeedScreen />
+          <GameFeedScreen initialTab={isAdminRoute ? 'admin' : 'home'} />
         )}
       </View>
     </SafeAreaProvider>

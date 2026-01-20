@@ -119,7 +119,11 @@ const MenuItem = memo(({ icon, text, onPress, isLast }: { icon: any; text: strin
     );
 });
 
-function ProfileScreen() {
+interface Props {
+    onAdminPress?: () => void;
+}
+
+function ProfileScreen({ onAdminPress }: Props) {
     const { width: SCREEN_WIDTH } = useWindowDimensions();
     const isSmallDevice = useIsSmallDevice();
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -286,6 +290,7 @@ function ProfileScreen() {
                         {/* Actions */}
                         <View style={[styles.section, { marginBottom: 60 }]}>
                             <MenuItem icon="settings-outline" text="Settings" />
+                            <MenuItem icon="shield-checkmark-outline" text="Admin Portal" onPress={onAdminPress} />
                             <MenuItem icon="shield-outline" text="Privacy" isLast />
                         </View>
                     </Animated.View>
