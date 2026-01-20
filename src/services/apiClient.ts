@@ -70,18 +70,15 @@ class ApiClient {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-            const response = await fetch(`${this.baseUrl}/api/health-check`, { // Ideally backend has this
+            // 1. Try dedicated health endpoint (best for load balancers/cors)
+            const response = await fetch(`${this.baseUrl}/api/health-check`, {
                 method: 'GET',
                 signal: controller.signal,
                 headers: { 'Accept': 'application/json' }
-            }).catch(async () => {
-                // Fallback: Try fetching games endpoint just to see connectivity (will likely 401/403 but that means Alive)
-                return await fetch(`${this.baseUrl}/api/admin/games`, {
-                    method: 'GET',
-                    signal: controller.signal,
-                    headers: { 'Accept': 'application/json' }
-                });
             });
+
+            // If we get here without error, we are likely connected
+            return response.status >= 200 && response.status < 500;
 
             clearTimeout(timeoutId);
 

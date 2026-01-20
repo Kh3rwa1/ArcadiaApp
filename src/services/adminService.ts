@@ -92,7 +92,8 @@ export const adminService = {
         });
 
         if (!response.ok) throw new Error('Fetch failed');
-        return await response.json();
+        const json = await response.json();
+        return json.data || [];
     },
 
     async toggleStatus(gameId: string, currentStatus: string): Promise<boolean> {
