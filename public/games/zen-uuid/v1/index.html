@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Zen Balancer</title>
+    <style>
+        body {
+            margin: 0;
+            background: #050505;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #ball {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 0 30px #fff;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            transition: left 0.5s ease-out, top 0.5s ease-out;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ball"></div>
+    <div style="position:absolute; bottom:20px;">Move your mouse/finger to balance</div>
+    <script>
+        const ball = document.getElementById('ball');
+        window.addEventListener('mousemove', (e) => {
+            ball.style.left = e.clientX + 'px';
+            ball.style.top = e.clientY + 'px';
+        });
+        window.addEventListener('touchmove', (e) => {
+            ball.style.left = e.touches[0].clientX + 'px';
+            ball.style.top = e.touches[0].clientY + 'px';
+        });
+    </script>
+</body>
+
+</html>

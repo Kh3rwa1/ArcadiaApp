@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cyber Siege</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0a0a12;
+            font-family: -apple-system, system-ui, sans-serif;
+            touch-action: none
+        }
+
+        #game {
+            position: absolute;
+            inset: 0
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: env(safe-area-inset-top, 20px) 20px 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10
+        }
+
+        .stat {
+            text-align: center
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(59, 130, 246, 0.8)
+        }
+
+        .stat-value.gold {
+            color: #ffd700
+        }
+
+        .stat-label {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px
+        }
+
+        #base-health {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            max-width: 200px
+        }
+
+        .health-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            transition: width 0.2s
+        }
+
+        #turret-menu {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            z-index: 50
+        }
+
+        .turret-btn {
+            padding: 10px 16px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            background: rgba(59, 130, 246, 0.2);
+            border: 2px solid rgba(59, 130, 246, 0.5);
+            border-radius: 20px
+        }
+
+        .turret-btn.active {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.4)
+        }
+
+        #start {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #0a0a12, #10101a);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100
+        }
+
+        #start.hidden {
+            display: none
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 40px #3b82f6;
+            letter-spacing: 4px
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            margin-top: 8px
+        }
+
+        .play-btn {
+            margin-top: 40px;
+            padding: 16px 50px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0a0a12;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 4px
+        }
+
+        #gameover {
+            position: absolute;
+            inset: 0;
+            background: rgba(10, 10, 18, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100
+        }
+
+        #gameover.active {
+            display: flex
+        }
+
+        .final {
+            font-size: 64px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        .retry-btn {
+            margin-top: 30px;
+            padding: 14px 40px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 30px;
+            text-transform: uppercase
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game"></canvas>
+    <div id="hud">
+        <div class="stat">
+            <div class="stat-value" id="wave">1</div>
+            <div class="stat-label">wave</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="score">0</div>
+            <div class="stat-label">score</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value gold" id="gold">💰100</div>
+            <div class="stat-label">gold</div>
+        </div>
+    </div>
+    <div id="base-health">
+        <div class="health-bar">
+            <div class="health-fill" id="health-fill"></div>
+        </div>
+    </div>
+    <div id="turret-menu">
+        <button class="turret-btn active" data-type="laser">🔫 50</button>
+        <button class="turret-btn" data-type="cannon">💥 80</button>
+        <button class="turret-btn" data-type="freeze">❄️ 60</button>
+    </div>
+    <div id="start">
+        <div class="title">SIEGE</div>
+        <div class="subtitle">Tower Defense</div>
+        <button class="play-btn" id="play">DEFEND</button>
+    </div>
+    <div id="gameover">
+        <div class="final" id="final">0</div>
+        <div style="color:rgba(255,255,255,0.5);margin-top:10px">FINAL SCORE</div>
+        <button class="retry-btn" id="retry">DEFEND AGAIN</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
+        const waveEl = document.getElementById('wave'), scoreEl = document.getElementById('score'), goldEl = document.getElementById('gold'), healthFill = document.getElementById('health-fill');
+        const startEl = document.getElementById('start'), gameoverEl = document.getElementById('gameover'), finalEl = document.getElementById('final');
+
+        let W, H, playing = false, score = 0, wave = 1, gold = 100, baseHealth = 100;
+        let turrets = [], enemies = [], projectiles = [], particles = [];
+        let selectedTurret = 'laser';
+        const GRID = 50, COSTS = { laser: 50, cannon: 80, freeze: 60 };
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight }
+        window.addEventListener('resize', resize); resize();
+
+        function spawnEnemy() {
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+            if (side === 0) { x = Math.random() * W; y = -30 }
+            else if (side === 1) { x = Math.random() * W; y = H + 30 }
+            else if (side === 2) { x = -30; y = Math.random() * H }
+            else { x = W + 30; y = Math.random() * H }
+            enemies.push({ x, y, health: 2 + wave, maxHealth: 2 + wave, speed: 1 + wave * 0.2, slowed: 0 });
+        }
+
+        function spawnWave() { for (let i = 0; i < 3 + wave * 2; i++)setTimeout(() => spawnEnemy(), i * 500) }
+
+        function buildTurret(x, y) {
+            const cost = COSTS[selectedTurret];
+            if (gold < cost) return;
+            // Check if position valid
+            const gx = Math.floor(x / GRID) * GRID + GRID / 2, gy = Math.floor(y / GRID) * GRID + GRID / 2;
+            if (turrets.some(t => t.x === gx && t.y === gy)) return;
+            if (Math.hypot(gx - W / 2, gy - H / 2) < 60) return;
+            gold -= cost; goldEl.textContent = `💰${gold}`;
+            const colors = { laser: '#3b82f6', cannon: '#ef4444', freeze: '#22d3ee' };
+            turrets.push({ x: gx, y: gy, type: selectedTurret, color: colors[selectedTurret], lastFire: 0, range: 80, damage: selectedTurret === 'cannon' ? 3 : 1 });
+        }
+
+        function update() {
+            if (!playing) return;
+            const now = Date.now();
+
+            // Enemies move toward center
+            enemies.forEach(e => {
+                const dx = W / 2 - e.x, dy = H / 2 - e.y;
+                const dist = Math.hypot(dx, dy);
+                const spd = e.slowed > 0 ? e.speed * 0.4 : e.speed;
+                if (dist > 0) { e.x += dx / dist * spd; e.y += dy / dist * spd }
+                e.slowed = Math.max(0, e.slowed - 16);
+                if (dist < 40) { baseHealth -= 10; healthFill.style.width = Math.max(0, baseHealth) + '%'; e.health = 0 }
+            });
+            enemies = enemies.filter(e => e.health > 0);
+
+            // Turrets fire
+            turrets.forEach(t => {
+                if (now - t.lastFire < (t.type === 'cannon' ? 1200 : 400)) return;
+                let target = null, minD = t.range + 30;
+                enemies.forEach(e => { const d = Math.hypot(e.x - t.x, e.y - t.y); if (d < minD) { minD = d; target = e } });
+                if (target) {
+                    t.lastFire = now;
+                    if (t.type === 'freeze') { target.slowed = 2000 }
+                    else {
+                        projectiles.push({ x: t.x, y: t.y, tx: target.x, ty: target.y, color: t.color, speed: 8, damage: t.damage });
+                    }
+                }
+            });
+
+            // Projectiles
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                const dx = p.tx - p.x, dy = p.ty - p.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist > 0) { p.x += dx / dist * p.speed; p.y += dy / dist * p.speed }
+                if (dist < 10) {
+                    projectiles.splice(i, 1);
+                    enemies.forEach(e => { if (Math.hypot(e.x - p.tx, e.y - p.ty) < 20) e.health -= p.damage });
+                    for (let j = 0; j < 5; j++)particles.push({ x: p.tx, y: p.ty, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, life: 1, color: p.color });
+                }
+            }
+
+            // Check kills
+            const killed = enemies.filter(e => e.health <= 0);
+            killed.forEach(() => { score += 50 * wave; gold += 10 });
+            enemies = enemies.filter(e => e.health > 0);
+            scoreEl.textContent = score; goldEl.textContent = `💰${gold}`;
+
+            // Next wave
+            if (enemies.length === 0 && playing) { wave++; waveEl.textContent = wave; setTimeout(spawnWave, 2000) }
+
+            // Game over
+            if (baseHealth <= 0) endGame();
+
+            particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life -= 0.03 });
+            particles = particles.filter(p => p.life > 0);
+        }
+
+        function draw() {
+            ctx.fillStyle = '#0a0a12'; ctx.fillRect(0, 0, W, H);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(59,130,246,0.1)'; ctx.lineWidth = 1;
+            for (let x = 0; x < W; x += GRID) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke() }
+            for (let y = 0; y < H; y += GRID) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
+
+            // Base
+            ctx.fillStyle = '#3b82f6'; ctx.shadowColor = '#3b82f6'; ctx.shadowBlur = 20;
+            ctx.beginPath(); ctx.arc(W / 2, H / 2, 40, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Turrets
+            turrets.forEach(t => {
+                ctx.fillStyle = t.color;
+                ctx.beginPath(); ctx.roundRect(t.x - 18, t.y - 18, 36, 36, 8); ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); ctx.stroke();
+            });
+
+            // Enemies
+            enemies.forEach(e => {
+                ctx.fillStyle = e.slowed > 0 ? '#22d3ee' : '#22c55e';
+                ctx.beginPath(); ctx.arc(e.x, e.y, 15, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(e.x - 12, e.y - 22, 24, 4);
+                ctx.fillStyle = '#22c55e';
+                ctx.fillRect(e.x - 12, e.y - 22, 24 * (e.health / e.maxHealth), 4);
+            });
+
+            // Projectiles
+            projectiles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // Particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+            }); ctx.globalAlpha = 1;
+        }
+
+        function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop) }
+
+        function startGame() { playing = true; score = 0; wave = 1; gold = 100; baseHealth = 100; turrets = []; enemies = []; projectiles = []; particles = []; waveEl.textContent = '1'; scoreEl.textContent = '0'; goldEl.textContent = '💰100'; healthFill.style.width = '100%'; startEl.classList.add('hidden'); gameoverEl.classList.remove('active'); spawnWave(); window.parent?.postMessage({ type: 'GAME_STARTED' }, '*') }
+        function endGame() { playing = false; finalEl.textContent = score; gameoverEl.classList.add('active'); window.parent?.postMessage({ type: 'SCORE_UPDATE', score, final: true }, '*') }
+
+        canvas.addEventListener('click', e => buildTurret(e.clientX, e.clientY));
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); buildTurret(e.touches[0].clientX, e.touches[0].clientY) });
+        document.querySelectorAll('.turret-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.turret-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedTurret = btn.dataset.type;
+            });
+        });
+        document.getElementById('play').addEventListener('click', startGame);
+        document.getElementById('retry').addEventListener('click', startGame);
+
+        window.addEventListener('message', e => { try { const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; if (d.action === 'LIFECYCLE_PAUSE') playing = false; if (d.action === 'LIFECYCLE_RESUME' && startEl.classList.contains('hidden')) playing = true } catch (err) { } });
+        window.parent?.postMessage({ type: 'READY' }, '*');
+
+        gameLoop();
+    </script>
+</body>
+
+</html>

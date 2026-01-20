@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Gravity Jump</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: #fff;
+        }
+
+        #player {
+            width: 40px;
+            height: 40px;
+            background: #fff;
+            position: absolute;
+            left: 50px;
+            bottom: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="player"></div>
+    <div style="position:fixed; top:20px;">Tap to Jump</div>
+    <script>
+        let y = 0; let vy = 0; const player = document.getElementById('player');
+        document.onclick = () => { if (y === 0) vy = 15; };
+        setInterval(() => {
+            y += vy; vy -= 1; if (y < 0) { y = 0; vy = 0; }
+            player.style.bottom = y + 'px';
+        }, 20);
+    </script>
+</body>
+
+</html>

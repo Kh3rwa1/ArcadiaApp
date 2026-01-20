@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Math Dash</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: #fff;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 32px;
+            padding: 24px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 320px;
+            font-size: 1.2rem;
+        }
+
+        .score {
+            color: #0f0;
+            font-weight: 700;
+        }
+
+        .streak {
+            color: #f80;
+        }
+
+        #question {
+            font-size: 3.5rem;
+            font-weight: 900;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            letter-spacing: -1px;
+        }
+
+        .answers {
+            display: flex;
+            gap: 16px;
+        }
+
+        .ans {
+            min-width: 100px;
+            padding: 20px 32px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .ans:active {
+            transform: scale(0.95);
+        }
+
+        .ans.correct {
+            background: linear-gradient(135deg, rgba(0, 255, 0, 0.3), rgba(0, 255, 0, 0.1));
+            border-color: #0f0;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        }
+
+        .ans.wrong {
+            background: linear-gradient(135deg, rgba(255, 0, 0, 0.3), rgba(255, 0, 0, 0.1));
+            border-color: #f00;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+
+        .timer-bar {
+            width: 100%;
+            max-width: 320px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0f0, #0ff);
+            transition: width 0.1s linear;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="game-container">
+        <div class="header">
+            <span class="score">Score: <span id="score">0</span></span>
+            <span class="streak">🔥 <span id="streak">0</span></span>
+        </div>
+        <div class="timer-bar">
+            <div class="timer-fill" id="timer"></div>
+        </div>
+        <div id="question">5 + 7</div>
+        <div class="answers">
+            <div class="ans" id="a1">12</div>
+            <div class="ans" id="a2">10</div>
+        </div>
+    </div>
+
+    <!-- ArcadiaBridge SDK -->
+    <script src="../_template/arcadia-bridge.js"></script>
+    <script>
+        // Game State
+        let score = 0;
+        let streak = 0;
+        let highScore = 0;
+        let level = 1;
+        let timeLeft = 100;
+        let timerInterval = null;
+        let isPaused = false;
+        let currentAnswer = 0;
+
+        // DOM Elements
+        const scoreEl = document.getElementById('score');
+        const streakEl = document.getElementById('streak');
+        const questionEl = document.getElementById('question');
+        const timerEl = document.getElementById('timer');
+        const ans1El = document.getElementById('a1');
+        const ans2El = document.getElementById('a2');
+
+        // Load saved state
+        function loadSavedState() {
+            const saved = ArcadiaBridge.getSavedState();
+            if (saved) {
+                highScore = saved.highScore || 0;
+                level = saved.level || 1;
+                console.log('[MathDash] Loaded:', saved);
+            }
+        }
+
+        // Generate new question
+        function nextQuestion() {
+            // Difficulty scales with level
+            const max = 10 + (level * 5);
+            const a = Math.floor(Math.random() * max);
+            const b = Math.floor(Math.random() * max);
+            currentAnswer = a + b;
+
+            questionEl.innerText = `${a} + ${b}`;
+
+            // Randomize button positions
+            if (Math.random() > 0.5) {
+                ans1El.innerText = currentAnswer;
+                ans2El.innerText = currentAnswer + (Math.random() > 0.5 ? Math.ceil(Math.random() * 5) : -Math.ceil(Math.random() * 5));
+            } else {
+                ans2El.innerText = currentAnswer;
+                ans1El.innerText = currentAnswer + (Math.random() > 0.5 ? Math.ceil(Math.random() * 5) : -Math.ceil(Math.random() * 5));
+            }
+
+            // Reset timer
+            timeLeft = 100;
+            timerEl.style.width = '100%';
+
+            // Clear feedback styles
+            ans1El.classList.remove('correct', 'wrong');
+            ans2El.classList.remove('correct', 'wrong');
+        }
+
+        // Handle answer
+        function handleAnswer(el) {
+            if (isPaused) return;
+
+            const selected = parseInt(el.innerText);
+            const isCorrect = selected === currentAnswer;
+
+            if (isCorrect) {
+                el.classList.add('correct');
+                score += 10 + (streak * 2);
+                streak++;
+                ArcadiaBridge.haptic('impactLight');
+
+                // Level up every 5 correct
+                if (streak > 0 && streak % 5 === 0) {
+                    level++;
+                    ArcadiaBridge.haptic('notificationSuccess');
+                }
+            } else {
+                el.classList.add('wrong');
+                streak = 0;
+                ArcadiaBridge.haptic('notificationError');
+            }
+
+            scoreEl.innerText = score;
+            streakEl.innerText = streak;
+
+            // Update high score
+            if (score > highScore) {
+                highScore = score;
+            }
+
+            // Report progress
+            ArcadiaBridge.reportScore(score, level);
+
+            // Next question after short delay
+            setTimeout(nextQuestion, 300);
+        }
+
+        // Timer countdown
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                if (isPaused) return;
+
+                timeLeft -= 2;
+                timerEl.style.width = timeLeft + '%';
+
+                if (timeLeft <= 0) {
+                    // Time's up - game over
+                    clearInterval(timerInterval);
+                    gameOver();
+                }
+            }, 100);
+        }
+
+        // Game over
+        function gameOver() {
+            ArcadiaBridge.complete({
+                score: score,
+                level: level,
+                status: 'complete'
+            });
+
+            ArcadiaBridge.saveState({
+                highScore: Math.max(score, highScore),
+                level: level
+            });
+
+            // Show game over state
+            questionEl.innerText = 'GAME OVER';
+            ans1El.style.display = 'none';
+            ans2El.style.display = 'none';
+        }
+
+        // Event listeners
+        ans1El.onclick = () => handleAnswer(ans1El);
+        ans2El.onclick = () => handleAnswer(ans2El);
+
+        // Bridge lifecycle hooks
+        ArcadiaBridge.onPause = () => {
+            isPaused = true;
+        };
+
+        ArcadiaBridge.onResume = () => {
+            isPaused = false;
+        };
+
+        ArcadiaBridge.onRestart = () => {
+            score = 0;
+            streak = 0;
+            timeLeft = 100;
+            scoreEl.innerText = '0';
+            streakEl.innerText = '0';
+            ans1El.style.display = 'block';
+            ans2El.style.display = 'block';
+            clearInterval(timerInterval);
+            nextQuestion();
+            startTimer();
+        };
+
+        // Initialize
+        setTimeout(() => {
+            loadSavedState();
+            ArcadiaBridge.flowStart();
+            nextQuestion();
+            startTimer();
+        }, 100);
+    </script>
+</body>
+
+</html>

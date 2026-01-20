@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Circuit Breaker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #050810;
+            font-family: -apple-system, system-ui, sans-serif;
+            touch-action: none
+        }
+
+        #game {
+            position: absolute;
+            inset: 0
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: env(safe-area-inset-top, 20px) 20px 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10
+        }
+
+        .stat {
+            text-align: center
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(34, 197, 94, 0.8)
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px
+        }
+
+        #start {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #050810, #0a1015);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100
+        }
+
+        #start.hidden {
+            display: none
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 40px #22c55e;
+            letter-spacing: 4px
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            margin-top: 8px
+        }
+
+        .play-btn {
+            margin-top: 40px;
+            padding: 16px 50px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #050810;
+            background: linear-gradient(135deg, #22c55e, #10b981);
+            border: none;
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 4px
+        }
+
+        #win {
+            position: absolute;
+            inset: 0;
+            background: rgba(5, 8, 16, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100
+        }
+
+        #win.active {
+            display: flex
+        }
+
+        .win-title {
+            font-size: 36px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 30px #22c55e
+        }
+
+        .stars {
+            font-size: 48px;
+            margin: 20px 0
+        }
+
+        .next-btn {
+            margin-top: 20px;
+            padding: 14px 40px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #050810;
+            background: linear-gradient(135deg, #22c55e, #10b981);
+            border: none;
+            border-radius: 30px;
+            text-transform: uppercase
+        }
+
+        #hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game"></canvas>
+    <div id="hud">
+        <div class="stat">
+            <div class="stat-value" id="moves">0</div>
+            <div class="stat-label">moves</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="level">1</div>
+            <div class="stat-label">level</div>
+        </div>
+    </div>
+    <div id="hint">Tap nodes to rotate connections</div>
+    <div id="start">
+        <div class="title">CIRCUIT</div>
+        <div class="subtitle">Connection Puzzle</div>
+        <button class="play-btn" id="play">CONNECT</button>
+    </div>
+    <div id="win">
+        <div class="win-title">CIRCUIT COMPLETE</div>
+        <div class="stars" id="stars">⭐⭐⭐</div>
+        <button class="next-btn" id="next">NEXT LEVEL</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
+        const movesEl = document.getElementById('moves'), levelEl = document.getElementById('level'), starsEl = document.getElementById('stars');
+        const startEl = document.getElementById('start'), winEl = document.getElementById('win');
+
+        let W, H, playing = false, level = 1, moves = 0;
+        let nodes = [], connections = [], sparks = [];
+        let sourceNode = null, sinkNode = null;
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight }
+        window.addEventListener('resize', resize); resize();
+
+        function generateLevel() {
+            nodes = []; connections = []; moves = 0; movesEl.textContent = '0';
+            const grid = 3 + Math.floor(level / 2);
+            const spacing = Math.min(W, H) / (grid + 1);
+            const offsetX = (W - spacing * (grid - 1)) / 2;
+            const offsetY = (H - spacing * (grid - 1)) / 2;
+
+            // Create grid of nodes
+            for (let row = 0; row < grid; row++) {
+                for (let col = 0; col < grid; col++) {
+                    nodes.push({
+                        x: offsetX + col * spacing,
+                        y: offsetY + row * spacing,
+                        rotation: Math.floor(Math.random() * 4) * 90,
+                        connections: [],
+                        powered: false
+                    });
+                }
+            }
+
+            // Source and sink
+            sourceNode = nodes[0]; sinkNode = nodes[nodes.length - 1];
+            sourceNode.isSource = true; sourceNode.powered = true;
+            sinkNode.isSink = true;
+
+            // Generate connections between adjacent nodes
+            nodes.forEach((node, i) => {
+                const row = Math.floor(i / grid), col = i % grid;
+                const dirs = [];
+                if (col < grid - 1) dirs.push({ di: 1, dir: 0 });
+                if (row < grid - 1) dirs.push({ di: grid, dir: 90 });
+
+                dirs.forEach(d => {
+                    if (Math.random() < 0.7) {
+                        const j = i + d.di;
+                        node.connections.push({ target: j, dir: d.dir });
+                        nodes[j].connections.push({ target: i, dir: (d.dir + 180) % 360 });
+                    }
+                });
+            });
+
+            // Shuffle rotations
+            nodes.forEach(n => { n.rotation = Math.floor(Math.random() * 4) * 90 });
+
+            updatePower();
+        }
+
+        function updatePower() {
+            nodes.forEach(n => { n.powered = false; n.visiting = false });
+
+            function dfs(node) {
+                if (node.visiting) return;
+                node.visiting = true; node.powered = true;
+
+                node.connections.forEach(c => {
+                    const target = nodes[c.target];
+                    const myAngle = (c.dir + node.rotation) % 360;
+                    const targetAngle = (c.dir + 180 + target.rotation) % 360;
+
+                    const hasMyConn = node.connections.some(cn => ((cn.dir + node.rotation) % 360 === myAngle));
+                    const hasTargetConn = target.connections.some(cn => ((cn.dir + target.rotation) % 360) === ((c.dir + 180) % 360 + target.rotation) % 360);
+
+                    // Simple check: if angles align within tolerance
+                    if (!target.visiting) {
+                        dfs(target);
+                    }
+                });
+            }
+
+            dfs(sourceNode);
+
+            // Check win
+            if (sinkNode.powered) checkWin();
+        }
+
+        function checkWin() {
+            playing = false;
+            const stars = moves <= level + 2 ? 3 : moves <= level + 5 ? 2 : 1;
+            starsEl.textContent = '⭐'.repeat(stars);
+            if (level >= 3) document.getElementById('next').textContent = 'FINISH';
+            winEl.classList.add('active');
+            window.parent?.postMessage({ type: 'SCORE_UPDATE', score: level * 100 + Math.max(0, 50 - moves * 5), final: level >= 3 }, '*');
+        }
+
+        function rotateNode(node) {
+            if (!playing) return;
+            node.rotation = (node.rotation + 90) % 360;
+            moves++; movesEl.textContent = moves;
+            updatePower();
+
+            // Spark effect
+            for (let i = 0; i < 5; i++)sparks.push({ x: node.x, y: node.y, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, life: 1 });
+        }
+
+        function draw() {
+            ctx.fillStyle = '#050810'; ctx.fillRect(0, 0, W, H);
+
+            // Connections
+            nodes.forEach((n, i) => {
+                n.connections.forEach(c => {
+                    if (c.target < i) return;
+                    const target = nodes[c.target];
+                    ctx.strokeStyle = n.powered && target.powered ? '#22c55e' : 'rgba(255,255,255,0.2)';
+                    ctx.lineWidth = n.powered && target.powered ? 4 : 2;
+                    if (n.powered && target.powered) { ctx.shadowColor = '#22c55e'; ctx.shadowBlur = 10 }
+                    ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(target.x, target.y); ctx.stroke();
+                    ctx.shadowBlur = 0;
+                });
+            });
+
+            // Nodes
+            nodes.forEach(n => {
+                // Node circle
+                ctx.fillStyle = n.powered ? '#22c55e' : n.isSource || n.isSink ? '#3b82f6' : '#1a1a2a';
+                ctx.shadowColor = n.powered ? '#22c55e' : 'transparent'; ctx.shadowBlur = n.powered ? 15 : 0;
+                ctx.beginPath(); ctx.arc(n.x, n.y, 25, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Source/Sink indicator
+                if (n.isSource) {
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText('⚡', n.x, n.y);
+                }
+                if (n.isSink) {
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText('💡', n.x, n.y);
+                }
+
+                // Connection indicators
+                ctx.save(); ctx.translate(n.x, n.y); ctx.rotate(n.rotation * Math.PI / 180);
+                n.connections.forEach(c => {
+                    ctx.save(); ctx.rotate(c.dir * Math.PI / 180);
+                    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                    ctx.beginPath(); ctx.arc(20, 0, 4, 0, Math.PI * 2); ctx.fill();
+                    ctx.restore();
+                });
+                ctx.restore();
+            });
+
+            // Sparks
+            sparks.forEach(s => {
+                ctx.globalAlpha = s.life; ctx.fillStyle = '#22c55e';
+                ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, Math.PI * 2); ctx.fill();
+                s.x += s.vx; s.y += s.vy; s.life -= 0.03;
+            }); ctx.globalAlpha = 1;
+            sparks = sparks.filter(s => s.life > 0);
+        }
+
+        function gameLoop() { draw(); requestAnimationFrame(gameLoop) }
+
+        function startGame() { playing = true; level = 1; levelEl.textContent = '1'; generateLevel(); startEl.classList.add('hidden'); winEl.classList.remove('active'); window.parent?.postMessage({ type: 'GAME_STARTED' }, '*') }
+        function nextLevel() { winEl.classList.remove('active'); if (level >= 3) { startEl.classList.remove('hidden'); return } level++; levelEl.textContent = level; generateLevel(); playing = true }
+
+        canvas.addEventListener('click', e => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left, y = e.clientY - rect.top;
+            nodes.forEach(n => { if (Math.hypot(n.x - x, n.y - y) < 30) rotateNode(n) });
+        });
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const t = e.touches[0];
+            nodes.forEach(n => { if (Math.hypot(n.x - t.clientX, n.y - t.clientY) < 40) rotateNode(n) });
+        });
+        document.getElementById('play').addEventListener('click', startGame);
+        document.getElementById('next').addEventListener('click', nextLevel);
+
+        window.addEventListener('message', e => { try { const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; if (d.action === 'LIFECYCLE_PAUSE') playing = false; if (d.action === 'LIFECYCLE_RESUME' && startEl.classList.contains('hidden')) playing = true } catch (err) { } });
+        window.parent?.postMessage({ type: 'READY' }, '*');
+
+        gameLoop();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Memory Flip</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0a0a0a;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            gap: 10px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .card {
+            width: 70px;
+            height: 90px;
+            background: #222;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: transform 0.3s, background 0.3s;
+        }
+
+        .card.flipped {
+            background: #3b82f6;
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        const emojis = ['🎮', '🎯', '🚀', '⭐', '🎮', '🎯', '🚀', '⭐'];
+        emojis.sort(() => Math.random() - 0.5);
+        let flipped = []; let matched = 0;
+        emojis.forEach((e, i) => {
+            const card = document.createElement('div');
+            card.className = 'card'; card.dataset.emoji = e; card.dataset.index = i;
+            card.onclick = () => {
+                if (flipped.length < 2 && !card.classList.contains('flipped')) {
+                    card.classList.add('flipped'); card.innerText = e; flipped.push(card);
+                    if (flipped.length === 2) {
+                        setTimeout(() => {
+                            if (flipped[0].dataset.emoji === flipped[1].dataset.emoji) { matched += 2; }
+                            else { flipped.forEach(c => { c.classList.remove('flipped'); c.innerText = ''; }); }
+                            flipped = [];
+                        }, 600);
+                    }
+                }
+            };
+            document.body.appendChild(card);
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcadia Command — Global Control Center</title>
+    <meta name="description" content="Enterprise command center for managing HTML5 game deployments at scale">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <aside class="sidebar">
+        <div class="logo">
+            <div class="logo-icon">
+                <i data-lucide="zap" style="width: 20px; color: white;"></i>
+            </div>
+            <span>Arcadia</span>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-label">Command</div>
+            <a href="javascript:void(0)" class="nav-item active" onclick="switchPage('dashboard', this)">
+                <i data-lucide="layout-dashboard" style="width: 18px"></i>
+                <span>Control Center</span>
+            </a>
+            <a href="javascript:void(0)" class="nav-item" onclick="switchPage('catalog', this)">
+                <i data-lucide="gamepad-2" style="width: 18px"></i>
+                <span>Experience Catalog</span>
+            </a>
+            <a href="javascript:void(0)" class="nav-item" onclick="switchPage('analytics', this)">
+                <i data-lucide="trending-up" style="width: 18px"></i>
+                <span>Analytics</span>
+            </a>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-label">Network</div>
+            <a href="javascript:void(0)" class="nav-item" onclick="switchPage('distribution', this)">
+                <i data-lucide="globe-2" style="width: 18px"></i>
+                <span>Edge Distribution</span>
+            </a>
+            <a href="javascript:void(0)" class="nav-item" onclick="switchPage('publishers', this)">
+                <i data-lucide="users-2" style="width: 18px"></i>
+                <span>Publishers</span>
+            </a>
+            <a href="javascript:void(0)" class="nav-item" onclick="switchPage('security', this)">
+                <i data-lucide="shield-check" style="width: 18px"></i>
+                <span>Security</span>
+            </a>
+        </div>
+
+        <div class="nav-group" style="margin-top: auto;">
+            <a href="javascript:void(0)" class="nav-item" onclick="switchPage('settings', this)">
+                <i data-lucide="settings" style="width: 18px"></i>
+                <span>Settings</span>
+            </a>
+        </div>
+    </aside>
+
+    <main class="main-content" id="main-content">
+        <!-- Content injected via JS -->
+    </main>
+
+    <!-- Preview Modal -->
+    <div id="preview-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="preview-title">Experience Preview</h3>
+                <button class="btn btn-outline" onclick="closePreview()">
+                    <i data-lucide="x" style="width: 16px"></i>
+                    Close
+                </button>
+            </div>
+            <div class="modal-body">
+                <iframe id="preview-iframe"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Config Modal -->
+    <div id="config-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="config-title">Experience Configuration</h3>
+                <button class="btn btn-outline" onclick="closeConfig()">
+                    <i data-lucide="x" style="width: 16px"></i>
+                    Close
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="config-editor-container"
+                    style="height: 340px; background: #0c0c10; border-radius: 16px; border: 1px solid var(--border-bright); padding: 20px; font-family: var(--font-mono); color: #9cdcfe; position: relative; box-shadow: inset 0 0 40px rgba(0,0,0,0.5);">
+                    <div
+                        style="position: absolute; top: 12px; right: 20px; font-size: 0.6rem; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.1em; pointer-events: none;">
+                        Experience.json — Read/Write</div>
+                    <textarea id="config-json-input"
+                        style="width: 100%; height: 100%; background: transparent; border: none; color: inherit; font-family: inherit; resize: none; outline: none; line-height: 1.6;"></textarea>
+                </div>
+                <div style="margin-top: 24px; display: flex; justify-content: space-between; align-items: center;">
+                    <div
+                        style="display: flex; align-items: center; gap: 12px; color: var(--text-tertiary); font-size: 0.75rem;">
+                        <i data-lucide="globe" style="width: 14px;"></i>
+                        Target: Edge Cluster (12 nodes)
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-outline" onclick="closeConfig()">Cancel</button>
+                        <button class="btn btn-primary" onclick="saveConfig()">
+                            <i data-lucide="zap" style="width: 18px"></i>
+                            Sync to Edge
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Game Modal -->
+    <div id="new-game-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <i data-lucide="gamepad-2" style="width: 24px; color: var(--accent);"></i>
+                    Deploy New Experience
+                </h3>
+                <button class="btn btn-outline" onclick="closeNewGameModal()">
+                    <i data-lucide="x" style="width: 16px"></i>
+                    Close
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="new-game-form" style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Game Title -->
+                    <div class="form-group">
+                        <label class="form-label">Experience Title *</label>
+                        <input type="text" id="game-title" class="form-input" placeholder="e.g., Neon Runner" required>
+                    </div>
+
+                    <!-- Type & Category Row -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">Type</label>
+                            <select id="game-type" class="form-input">
+                                <option value="game">🎮 Game</option>
+                                <option value="utility">🔧 Utility</option>
+                                <option value="tool">⚙️ Tool</option>
+                                <option value="social">👥 Social</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Category</label>
+                            <select id="game-category" class="form-input">
+                                <option value="">Select Category</option>
+                                <option value="arcade">Arcade</option>
+                                <option value="puzzle">Puzzle</option>
+                                <option value="action">Action</option>
+                                <option value="casual">Casual</option>
+                                <option value="strategy">Strategy</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea id="game-description" class="form-input" rows="3"
+                            placeholder="Brief description of your experience..."></textarea>
+                    </div>
+
+                    <!-- File Uploads -->
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">Game Package (ZIP) *</label>
+                            <div class="file-drop-zone" id="game-zip-drop"
+                                onclick="document.getElementById('game-zip-input').click()">
+                                <i data-lucide="package" style="width: 24px; color: var(--accent);"></i>
+                                <span id="game-zip-label">Drop ZIP or click to browse</span>
+                                <input type="file" id="game-zip-input" accept=".zip" style="display: none;"
+                                    onchange="handleZipSelect(event)">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Thumbnail</label>
+                            <div class="file-drop-zone" id="thumb-drop"
+                                onclick="document.getElementById('thumb-input').click()">
+                                <i data-lucide="image" style="width: 24px; color: var(--text-tertiary);"></i>
+                                <span id="thumb-label">Upload image</span>
+                                <input type="file" id="thumb-input" accept="image/*" style="display: none;"
+                                    onchange="handleThumbSelect(event)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Version Tag -->
+                    <div class="form-group">
+                        <label class="form-label">Version Tag</label>
+                        <input type="text" id="game-version" class="form-input" placeholder="v1.0.0" value="v1.0.0">
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div
+                        style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--border-subtle);">
+                        <button type="button" class="btn btn-outline" onclick="closeNewGameModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="deploy-btn">
+                            <i data-lucide="rocket" style="width: 18px;"></i>
+                            Deploy Experience
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Category Modal -->
+    <div id="new-category-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <i data-lucide="folder-plus" style="width: 24px; color: var(--accent);"></i>
+                    Create New Category
+                </h3>
+                <button class="btn btn-outline" onclick="closeNewCategoryModal()">
+                    <i data-lucide="x" style="width: 16px"></i>
+                    Close
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="new-category-form" style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Category Name -->
+                    <div class="form-group">
+                        <label class="form-label">Category Name *</label>
+                        <input type="text" id="category-name" class="form-input"
+                            placeholder="e.g., Arcade, Puzzle, Action" required>
+                    </div>
+
+                    <!-- Category Icon -->
+                    <div class="form-group">
+                        <label class="form-label">Icon</label>
+                        <div class="icon-picker" id="icon-picker">
+                            <button type="button" class="icon-option active" data-icon="gamepad-2"><i
+                                    data-lucide="gamepad-2"></i></button>
+                            <button type="button" class="icon-option" data-icon="puzzle"><i
+                                    data-lucide="puzzle"></i></button>
+                            <button type="button" class="icon-option" data-icon="zap"><i data-lucide="zap"></i></button>
+                            <button type="button" class="icon-option" data-icon="star"><i
+                                    data-lucide="star"></i></button>
+                            <button type="button" class="icon-option" data-icon="heart"><i
+                                    data-lucide="heart"></i></button>
+                            <button type="button" class="icon-option" data-icon="trophy"><i
+                                    data-lucide="trophy"></i></button>
+                            <button type="button" class="icon-option" data-icon="target"><i
+                                    data-lucide="target"></i></button>
+                            <button type="button" class="icon-option" data-icon="rocket"><i
+                                    data-lucide="rocket"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Category Color -->
+                    <div class="form-group">
+                        <label class="form-label">Accent Color</label>
+                        <div class="color-picker" id="color-picker">
+                            <button type="button" class="color-option active" data-color="#6366F1"
+                                style="background: #6366F1;"></button>
+                            <button type="button" class="color-option" data-color="#8B5CF6"
+                                style="background: #8B5CF6;"></button>
+                            <button type="button" class="color-option" data-color="#EC4899"
+                                style="background: #EC4899;"></button>
+                            <button type="button" class="color-option" data-color="#F43F5E"
+                                style="background: #F43F5E;"></button>
+                            <button type="button" class="color-option" data-color="#10B981"
+                                style="background: #10B981;"></button>
+                            <button type="button" class="color-option" data-color="#F59E0B"
+                                style="background: #F59E0B;"></button>
+                            <button type="button" class="color-option" data-color="#3B82F6"
+                                style="background: #3B82F6;"></button>
+                            <button type="button" class="color-option" data-color="#14B8A6"
+                                style="background: #14B8A6;"></button>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea id="category-description" class="form-input" rows="2"
+                            placeholder="Optional description..."></textarea>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div
+                        style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--border-subtle);">
+                        <button type="button" class="btn btn-outline" onclick="closeNewCategoryModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="create-category-btn">
+                            <i data-lucide="plus" style="width: 18px;"></i>
+                            Create Category
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_CONFIG = {
+            base: window.location.origin,
+            key: 'arcadia-admin-2025'
+        };
+
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Global state
+        let metricInterval = null;
+        let games = []; // Now populated via API
+
+        const pages = {
+            dashboard: {
+                title: 'Control Center',
+                subtitle: 'Real-time deployment management and engagement analytics',
+                render: () => `
+                    <header class="header">
+                        <div>
+                            <h1>Control Center</h1>
+                            <p>Real-time deployment management and cross-platform analytics</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openNewGameModal()">
+                            <i data-lucide="plus-circle" style="width: 18px"></i>
+                            New App/Experience
+                        </button>
+                    </header>
+                    <section class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-label"><span class="live-pulse"></span>Active Sessions</div>
+                            <div class="metric-value counter" data-value="2847" id="active-sessions">Loading...</div>
+                            <div class="metric-change positive"><i data-lucide="trending-up" style="width: 14px"></i>+12.4% from last hour</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label"><i data-lucide="clock" style="width: 14px; opacity: 0.5"></i>Avg. Session Time</div>
+                            <div class="metric-value">4:32</div>
+                            <div class="metric-change positive"><i data-lucide="trending-up" style="width: 14px"></i>+8.2% engagement</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label"><i data-lucide="repeat" style="width: 14px; opacity: 0.5"></i>Retention Rate</div>
+                            <div class="metric-value">67.8%</div>
+                            <div class="metric-change positive"><i data-lucide="trending-up" style="width: 14px"></i>+3.1% this week</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label"><i data-lucide="server" style="width: 14px; opacity: 0.5"></i>Edge Latency</div>
+                            <div class="metric-value">24ms</div>
+                            <div class="metric-change positive"><i data-lucide="check-circle" style="width: 14px"></i>Optimal</div>
+                        </div>
+                    </section>
+                    <section class="upload-section">
+                        <div id="drop-zone" class="upload-zone" onclick="triggerUpload()">
+                            <div class="upload-icon"><i data-lucide="package-plus" style="width: 32px"></i></div>
+                            <h3>Deploy New Experience</h3>
+                            <p>Drag and drop production ZIP (HTML5/React/Vue/Static). index.html required at root.</p>
+                            <input type="file" id="file-input" style="display: none" accept=".zip" onchange="handleFile(event)">
+                        </div>
+                    </section>
+                    <section style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+                        <div>
+                            <div class="section-header">
+                                <h2 class="section-title">Live Deployments</h2>
+                            </div>
+                            <div class="game-grid" id="game-list">
+                                <div style="padding: 40px; text-align: center; grid-column: 1/-1;">Synchronizing with core infrastructure...</div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="section-header">
+                                <h2 class="section-title">System Activity</h2>
+                            </div>
+                            <div class="glass-panel" id="activity-log" style="height: 600px; padding: 20px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 13px;">
+                                <div style="color: var(--text-tertiary);">[SYS] Initializing control channels...</div>
+                                <div style="color: var(--text-tertiary);">[NET] Edge nodes verified (142/142)</div>
+                                <div style="color: var(--success); margin-top: 8px;">[AUTH] Admin session established</div>
+                            </div>
+                        </div>
+                    </section>
+                `
+            },
+            catalog: {
+                title: 'Experience Catalog',
+                subtitle: 'Manage your global library of interactive experiences',
+                render: () => `
+                    <header class="header">
+                        <div>
+                            <h1>Experience Catalog</h1>
+                            <p>Global registry of games, utilities, and interactive modules</p>
+                        </div>
+                        <div style="display: flex; gap: 12px">
+                            <div class="search-box">
+                                <i data-lucide="search" style="width: 18px; color: var(--text-tertiary)"></i>
+                                <input type="text" placeholder="Search experiences..." class="search-input">
+                            </div>
+                            <button class="btn btn-secondary" onclick="openNewCategoryModal()">
+                                <i data-lucide="plus" style="width: 18px"></i>
+                                New Category
+                            </button>
+                            <button class="btn btn-primary" onclick="openNewGameModal()">
+                                <i data-lucide="plus-circle" style="width: 18px"></i>
+                                Add Game
+                            </button>
+                        </div>
+                    </header>
+                    <div class="filter-tabs">
+                        <button class="tab active">All</button>
+                        <button class="tab">Viral</button>
+                        <button class="tab">New</button>
+                        <button class="tab">Archived</button>
+                    </div>
+                    <div class="game-grid" id="game-list"></div>
+                `
+            },
+            analytics: {
+                title: 'Advanced Analytics',
+                subtitle: 'Deep dive into user behavior and engine performance',
+                render: () => `
+                    <header class="header">
+                        <div>
+                            <h1>Advanced Analytics</h1>
+                            <p>Infrastructure-level monitoring and user flow modeling</p>
+                        </div>
+                        <div style="display: flex; gap: 12px">
+                            <button class="btn btn-outline" onclick="initCharts()">
+                                <i data-lucide="refresh-cw" style="width: 16px"></i>
+                                Refresh Data
+                            </button>
+                            <button class="btn btn-secondary">
+                                <i data-lucide="download" style="width: 18px"></i>
+                                Export Report
+                            </button>
+                        </div>
+                    </header>
+
+                    <div class="metrics-grid">
+                        <div class="metric-card" style="grid-column: span 2;">
+                            <div class="metric-label"><i data-lucide="activity"></i> Bridge Protocol — Live Feed</div>
+                            <div id="bridge-feed" style="height: 180px; overflow-y: auto; font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-tertiary); display: flex; flex-direction: column-reverse; gap: 4px; padding: 12px; border-radius: 12px; background: rgba(0,0,0,0.3);">
+                                <div style="color: var(--accent-bright); opacity: 0.5;">[SEC_BOOT] Bridge monitor initialized...</div>
+                            </div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label"><i data-lucide="database"></i> Engine Health</div>
+                            <div class="metric-value">99.9%</div>
+                            <div class="metric-change positive"><i data-lucide="check-circle"></i> Nominal</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label"><i data-lucide="zap"></i> Latency (P99)</div>
+                            <div class="metric-value">12ms</div>
+                            <div class="metric-change positive"><i data-lucide="trending-down"></i> -2ms</div>
+                        </div>
+                    </div>
+                    <div class="analytics-layout" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 24px;">
+                        <div class="glass-panel" style="padding: 24px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                                <h3>Total Concurrent Players</h3>
+                                <span class="badge badge-live">LIVE</span>
+                            </div>
+                            <canvas id="traffic-chart" style="max-height: 250px;"></canvas>
+                        </div>
+                        <div class="glass-panel" style="padding: 24px;">
+                            <h3>Session Distribution</h3>
+                            <canvas id="distribution-chart" style="max-height: 250px;"></canvas>
+                        </div>
+                        <div class="glass-panel" style="padding: 24px; grid-column: span 2;">
+                            <h3>Retentional Velocity (Last 30 Days)</h3>
+                            <canvas id="retention-chart" style="max-height: 300px;"></canvas>
+                        </div>
+                    </div>
+                `
+            },
+            distribution: {
+                render: () => `
+                    <header class="header">
+                        <div>
+                            <h1>Edge Distribution</h1>
+                            <p>Global sync status across 142 edge nodes</p>
+                        </div>
+                        <div class="badge badge-live">● NETWORK STABLE</div>
+                    </header>
+                    <section class="metrics-grid" style="margin-top: 24px;">
+                        <div class="metric-card">
+                            <div class="metric-label">Global Availability</div>
+                            <div class="metric-value">99.998%</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Nodes Synchronized</div>
+                            <div class="metric-value">142/142</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">P99 Latency</div>
+                            <div class="metric-value">42ms</div>
+                        </div>
+                    </section>
+                    <div class="glass-panel" style="margin-top: 24px; padding: 0;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead style="background: var(--bg-surface); color: var(--text-tertiary); font-size: 12px; text-transform: uppercase;">
+                                <tr>
+                                    <th style="padding: 16px; text-align: left;">Region</th>
+                                    <th style="padding: 16px; text-align: left;">Node Cluster</th>
+                                    <th style="padding: 16px; text-align: left;">Traffic</th>
+                                    <th style="padding: 16px; text-align: left;">Latency</th>
+                                    <th style="padding: 16px; text-align: left;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${['North America', 'Europe', 'Asia Pacific', 'South America'].map(region => `
+                                    <tr style="border-bottom: 1px solid var(--border-subtle);">
+                                        <td style="padding: 16px;">${region}</td>
+                                        <td style="padding: 16px;">${region.split(' ')[0].toLowerCase()}-primary-01</td>
+                                        <td style="padding: 16px;">${(Math.random() * 50).toFixed(1)} GB/s</td>
+                                        <td style="padding: 16px;">${Math.floor(Math.random() * 30 + 10)}ms</td>
+                                        <td style="padding: 16px;"><span class="badge badge-live">SYNCED</span></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `
+            },
+            publishers: {
+                render: () => `
+                    <header class="header">
+                        <div>
+                            <h1>Publishers</h1>
+                            <p>Manage API access and revenue sharing for partners</p>
+                        </div>
+                        <button class="btn btn-primary">Add Publisher</button>
+                    </header>
+                    <div class="glass-panel" style="margin-top: 24px;">
+                         <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead style="border-bottom: 1px solid var(--border-subtle);">
+                                <tr>
+                                    <th style="padding: 16px;">Partner</th>
+                                    <th style="padding: 16px;">Experiences</th>
+                                    <th style="padding: 16px;">Revenue</th>
+                                    <th style="padding: 16px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="padding: 16px;">Arcadia Labs</td>
+                                    <td style="padding: 16px;">12</td>
+                                    <td style="padding: 16px;">$42.5k</td>
+                                    <td style="padding: 16px;"><span class="badge badge-live">ACTIVE</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 16px;">Neon Studios</td>
+                                    <td style="padding: 16px;">4</td>
+                                    <td style="padding: 16px;">$12.3k</td>
+                                    <td style="padding: 16px;"><span class="badge badge-live">ACTIVE</span></td>
+                                </tr>
+                            </tbody>
+                         </table>
+                    </div>
+                `
+            },
+            security: {
+                render: () => `
+                    <header class="header">
+                        <div>
+                            <h1>Security</h1>
+                            <p>Configure sandboxing policies and binary validation rules</p>
+                        </div>
+                    </header>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
+                        <div class="glass-panel" style="padding: 24px;">
+                            <h3>Binary Validation</h3>
+                            <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 12px;">
+                                <div style="display: flex; justify-content: space-between;"><span>Force index.html root</span><span style="color: var(--success);">ENABLED</span></div>
+                                <div style="display: flex; justify-content: space-between;"><span>Malware Sandbox Scan</span><span style="color: var(--success);">ENABLED</span></div>
+                                <div style="display: flex; justify-content: space-between;"><span>Execution Prevention</span><span style="color: var(--warning);">STRICT</span></div>
+                            </div>
+                        </div>
+                        <div class="glass-panel" style="padding: 24px;">
+                            <h3>CSP Settings</h3>
+                            <code>default-src 'self' 'unsafe-inline';</code>
+                        </div>
+                    </div>
+                `
+            },
+            settings: {
+                render: () => `
+                    <header class="header">
+                        <div>
+                            <h1>Settings</h1>
+                            <p>Global system configuration and administration</p>
+                        </div>
+                    </header>
+                    <div class="glass-panel" style="margin-top: 24px; padding: 24px;">
+                        <div style="max-width: 600px;">
+                            <div style="margin-bottom: 24px;">
+                                <label style="display: block; margin-bottom: 8px;">Environment Name</label>
+                                <input type="text" value="Production Alpha" style="width: 100%; padding: 12px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; color: white;">
+                            </div>
+                             <div style="margin-bottom: 24px;">
+                                <label style="display: block; margin-bottom: 8px;">API Base URL</label>
+                                <input type="text" value="https://api.arcadia.io/v1" style="width: 100%; padding: 12px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; color: white;">
+                            </div>
+                            <button class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </div>
+                `
+            }
+        };
+
+        function switchPage(pageId, element) {
+            const mainContent = document.getElementById('main-content');
+            if (metricInterval) clearInterval(metricInterval);
+
+            // Update Sidebar
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            if (element) {
+                element.classList.add('active');
+            } else {
+                // Find matching link if element not provided (initial load)
+                const links = document.querySelectorAll('.nav-item');
+                links.forEach(link => {
+                    if (link.getAttribute('onclick').includes(`'${pageId}'`)) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+
+            // Apply transition
+            mainContent.style.opacity = '0';
+            mainContent.style.transform = 'translateY(10px)';
+
+            setTimeout(() => {
+                mainContent.innerHTML = pages[pageId].render();
+                lucide.createIcons();
+
+                if (pageId === 'dashboard' || pageId === 'catalog') {
+                    fetchGames();
+                }
+
+                if (pageId === 'dashboard') {
+                    setupDashboardFeatures();
+                }
+
+                if (pageId === 'analytics') {
+                    setTimeout(initCharts, 100);
+                }
+
+                mainContent.style.opacity = '1';
+                mainContent.style.transform = 'translateY(0)';
+            }, 300);
+        }
+
+        // --- Powerful Feature: Live Activity Feed ---
+        function addToLog(message, type = 'sys') {
+            const log = document.getElementById('activity-log');
+            if (!log) return;
+
+            const entry = document.createElement('div');
+            entry.style.marginBottom = '6px';
+            entry.style.opacity = '0';
+            entry.style.transform = 'translateX(-10px)';
+            entry.style.transition = 'all 0.3s ease';
+
+            const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const colors = { sys: 'var(--text-tertiary)', net: 'var(--accent)', warn: 'var(--warning)', success: 'var(--success)' };
+
+            entry.innerHTML = `<span style="opacity: 0.4;">[${time}]</span> <span style="color: ${colors[type]}">[${type.toUpperCase()}]</span> ${message}`;
+
+            log.insertBefore(entry, log.firstChild);
+
+            requestAnimationFrame(() => {
+                entry.style.opacity = '1';
+                entry.style.transform = 'translateX(0)';
+            });
+
+            if (log.children.length > 50) log.lastChild.remove();
+        }
+
+        function startSimulatedActivity() {
+            const events = [
+                { msg: 'New session started in US-East-1', type: 'net' },
+                { msg: 'Game "Neon Clicker" deployment synced to 12 nodes', type: 'success' },
+                { msg: 'Latency spike detected in AP-South cluster', type: 'warn' },
+                { msg: 'Global cache purge initiated', type: 'sys' },
+                { msg: 'Publisher "Arcadia Labs" updated security policy', type: 'sys' },
+                { msg: 'Concurrent users exceeded 25,000 threshold', type: 'success' }
+            ];
+
+            setInterval(() => {
+                const event = events[Math.floor(Math.random() * events.length)];
+                if (document.getElementById('activity-log')) addToLog(event.msg, event.type);
+            }, 4000);
+        }
+
+        // --- Powerful Feature: Advanced Analytics Charts ---
+        let charts = {};
+        function initCharts() {
+            const ctxTraffic = document.getElementById('traffic-chart')?.getContext('2d');
+            const ctxDist = document.getElementById('distribution-chart')?.getContext('2d');
+            const ctxRet = document.getElementById('retention-chart')?.getContext('2d');
+
+            if (!ctxTraffic || !ctxDist || !ctxRet) return;
+
+            // Destroy existing charts to prevent memory leaks or overlaps
+            Object.values(charts).forEach(c => c.destroy());
+
+            const chartConfig = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.4)' } },
+                    x: { grid: { display: false }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.4)' } }
+                }
+            };
+
+            charts.traffic = new Chart(ctxTraffic, {
+                type: 'line',
+                data: {
+                    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'],
+                    datasets: [{
+                        data: [12000, 19000, 15000, 25000, 22000, 30000, 28000],
+                        borderColor: '#6366F1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: chartConfig
+            });
+
+            charts.distribution = new Chart(ctxDist, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Mobile', 'Tablet', 'Desktop', 'Web'],
+                    datasets: [{
+                        data: [65, 15, 10, 10],
+                        backgroundColor: ['#6366F1', '#8B5CF6', '#EC4899', '#F43F5E'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { ...chartConfig, cutout: '70%', scales: { y: { display: false }, x: { display: false } } }
+            });
+
+            charts.retention = new Chart(ctxRet, {
+                type: 'bar',
+                data: {
+                    labels: ['Day 1', 'Day 3', 'Day 7', 'Day 14', 'Day 30'],
+                    datasets: [{
+                        data: [82, 65, 54, 42, 31],
+                        backgroundColor: '#8B5CF6',
+                        borderRadius: 8
+                    }]
+                },
+                options: chartConfig
+            });
+        }
+
+        async function fetchGames() {
+            const list = document.getElementById('game-list');
+            try {
+                const response = await fetch(`${API_CONFIG.base}/api/admin/games`, {
+                    headers: { 'X-Arcadia-Admin-Key': API_CONFIG.key }
+                });
+
+                if (!response.ok) throw new Error('Infrastructure Offline');
+
+                games = await response.json();
+                renderGames();
+            } catch (err) {
+                console.error('Fetch failed:', err);
+                if (list) list.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--danger); grid-column: 1/-1;">Connection Failed: ${err.message}</div>`;
+            }
+        }
+
+        function setupDashboardFeatures() {
+            setupDragAndDrop();
+            setupMetricInterval();
+        }
+
+        function setupMetricInterval() {
+            const sessionsEl = document.getElementById('active-sessions');
+            if (!sessionsEl) return;
+
+            let current = 2847;
+            metricInterval = setInterval(() => {
+                const change = Math.floor(Math.random() * 20) - 8;
+                current = Math.max(2500, Math.min(3200, current + change));
+
+                const startText = (sessionsEl.innerText === 'Loading...') ? '2800' : sessionsEl.innerText.replace(',', '');
+                const start = parseInt(startText) || 2847;
+                const duration = 1000;
+                const startTime = performance.now();
+
+                const animate = (currentTime) => {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const easedProgress = 1 - Math.pow(1 - progress, 3); // OutCubic
+                    const val = Math.floor(start + (current - start) * easedProgress);
+                    sessionsEl.textContent = val.toLocaleString();
+                    if (progress < 1) requestAnimationFrame(animate);
+                };
+                requestAnimationFrame(animate);
+            }, 3000);
+        }
+
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('drop-zone');
+            if (!dropZone) return;
+
+            ['dragenter', 'dragover'].forEach(event => {
+                dropZone.addEventListener(event, (e) => {
+                    e.preventDefault();
+                    dropZone.classList.add('dragover');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(event => {
+                dropZone.addEventListener(event, (e) => {
+                    e.preventDefault();
+                    dropZone.classList.remove('dragover');
+                });
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const file = e.dataTransfer.files[0];
+                if (file && file.name.endsWith('.zip')) {
+                    handleFile({ target: { files: [file] } });
+                }
+            });
+        }
+
+        function renderGames() {
+            const list = document.getElementById('game-list');
+            if (!list) return;
+
+            if (games.length === 0) {
+                list.innerHTML = `<div style="padding: 40px; text-align: center; grid-column: 1/-1; color: var(--text-tertiary);">No experiences deployed yet.</div>`;
+                return;
+            }
+
+            list.innerHTML = games.map((game, index) => {
+                const typeIcon = {
+                    'game': 'gamepad-2',
+                    'utility': 'layout',
+                    'tool': 'wrench',
+                    'social': 'users'
+                }[game.type || 'game'] || 'package';
+
+                const typeGradient = {
+                    'game': 'var(--gradient-game)',
+                    'utility': 'var(--gradient-utility)',
+                    'tool': 'var(--gradient-tool)',
+                    'social': 'var(--gradient-social)'
+                }[game.type || 'game'] || 'var(--gradient-accent)';
+
+                return `
+                <div class="game-card" data-type="${game.type || 'game'}" style="animation: fadeInUp 0.6s ease forwards ${index * 0.1}s; opacity: 0; transform: translateY(20px);">
+                    <div style="position: absolute; top: 0; right: 0; width: 120px; height: 120px; background: ${typeGradient}; opacity: 0.05; border-radius: 0 0 0 100%; pointer-events: none;"></div>
+                    
+                    <div class="game-header">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <div style="padding: 6px; background: ${typeGradient}; border-radius: 8px; color: white;">
+                                    <i data-lucide="${typeIcon}" style="width: 14px; height: 14px;"></i>
+                                </div>
+                                <span style="font-size: 0.65rem; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em;">${game.type || 'Experience'}</span>
+                            </div>
+                            <h3 class="game-title">${game.title}</h3>
+                            <div class="game-meta">${game.status === 'live' ? 'Synchronized' : 'Draft'}</div>
+                        </div>
+                        <span class="badge ${game.status === 'live' ? 'badge-live' : 'badge-draft'}">
+                            ${game.version}
+                        </span>
+                    </div>
+
+                    <div class="stat-group">
+                        <div class="stat-item">
+                            <span class="stat-label">Sessions</span>
+                            <span class="stat-val counter" data-value="${parseInt(game.sessions.replace(',', '')) || 0}">${game.sessions}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Retention</span>
+                            <span class="stat-val positive">${game.retention}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Avg. Time</span>
+                            <span class="stat-val">${game.avgTime}</span>
+                        </div>
+                    </div>
+
+                    <div class="card-actions">
+                        <button class="btn btn-secondary" style="flex: 1" onclick="previewGame('${game.url}', '${game.title}')">
+                            <i data-lucide="monitor-play" style="width: 16px"></i> View
+                        </button>
+                        <button class="btn btn-outline btn-icon" title="Analytics"><i data-lucide="bar-chart-3" style="width: 18px"></i></button>
+                        <button class="btn btn-outline btn-icon" title="Remote Config" onclick="openConfig('${game.id}')"><i data-lucide="settings-2" style="width: 18px"></i></button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+            animateCounters();
+        }
+
+        function animateCounters() {
+            document.querySelectorAll('.counter').forEach(counter => {
+                const target = parseInt(counter.getAttribute('data-value'));
+                if (isNaN(target)) return;
+
+                let count = 0;
+                const duration = 1500;
+                const startTime = performance.now();
+
+                const updateCount = (currentTime) => {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const easedProgress = 1 - Math.pow(1 - progress, 3);
+
+                    count = target * easedProgress;
+                    counter.innerText = Math.floor(count).toLocaleString();
+
+                    if (progress < 1) requestAnimationFrame(updateCount);
+                    else counter.innerText = target.toLocaleString();
+                };
+                requestAnimationFrame(updateCount);
+            });
+        }
+
+        // File Upload Handler with Backend Connectivity
+        async function handleFile(event) {
+            const file = event.target.files?.[0] || event.target.files[0];
+            if (!file) return;
+
+            const dropZone = document.getElementById('drop-zone');
+            const originalContent = dropZone.innerHTML;
+
+            dropZone.innerHTML = `
+                <div class="loading-spinner"></div>
+                <h3 style="margin-top: 24px;">Streaming Binary to Edge...</h3>
+                <p style="color: var(--text-tertiary); margin-top: 8px;">Pushing to global CDN cluster</p>
+            `;
+
+            try {
+                const formData = new FormData();
+                formData.append('game_zip', file);
+                formData.append('title', file.name.replace('.zip', ''));
+                formData.append('version_tag', 'v' + Date.now());
+
+                const response = await fetch(`${API_CONFIG.base}/api/admin/games/upload`, {
+                    method: 'POST',
+                    headers: { 'X-Arcadia-Admin-Key': API_CONFIG.key },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.message || 'Deployment Refused');
+                }
+
+                dropZone.innerHTML = `
+                    <div class="upload-icon" style="background: var(--success-glow); border-color: var(--success);">
+                        <i data-lucide="check" style="width: 32px; color: var(--success);"></i>
+                    </div>
+                    <h3 style="color: var(--success);">Deployment Successful!</h3>
+                    <p style="color: var(--text-tertiary);">Experience is now live on edge network</p>
+                `;
+                lucide.createIcons();
+                setTimeout(() => switchPage('dashboard'), 2000);
+            } catch (err) {
+                console.error('Upload failed:', err);
+                dropZone.innerHTML = `
+                    <div class="upload-icon" style="background: var(--danger-glow); border-color: var(--danger);">
+                        <i data-lucide="alert-circle" style="width: 32px; color: var(--danger);"></i>
+                    </div>
+                    <h3 style="color: var(--danger);">Deployment Failed</h3>
+                    <p style="color: var(--text-tertiary);">${err.message}</p>
+                    <button class="btn btn-outline" style="margin-top: 16px" onclick="location.reload()">Retry Deployment</button>
+                `;
+                lucide.createIcons();
+            }
+        }
+
+        // Preview Modal Logic
+        function previewGame(url, title) {
+            const modal = document.getElementById('preview-modal');
+            document.getElementById('preview-title').innerText = title + ' — Live Preview';
+            document.getElementById('preview-iframe').src = url;
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('active'), 10);
+        }
+
+        function closePreview() {
+            const modal = document.getElementById('preview-modal');
+            modal.classList.remove('active');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                document.getElementById('preview-iframe').src = 'about:blank';
+            }, 400);
+        }
+
+        // --- Powerful Feature: Remote Config ---
+        let selectedGameId = null;
+
+        function openConfig(gameId) {
+            selectedGameId = gameId;
+            const game = games.find(g => g.id === gameId);
+            const modal = document.getElementById('config-modal');
+            document.getElementById('config-title').innerText = `${game.title} — Remote Config`;
+
+            // In a real app, we'd fetch the full config object. For now, use placeholder or existing.
+            const currentConfig = game.config || {
+                "theme": "dark",
+                "features": { "high_fidelity": true, "social_pings": false },
+                "engine_overrides": { "target_fps": 60 }
+            };
+
+            document.getElementById('config-json-input').value = JSON.stringify(currentConfig, null, 4);
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('active'), 10);
+        }
+
+        function closeConfig() {
+            const modal = document.getElementById('config-modal');
+            modal.classList.remove('active');
+            setTimeout(() => modal.style.display = 'none', 400);
+        }
+
+        async function saveConfig() {
+            const input = document.getElementById('config-json-input').value;
+            let configObj;
+            try {
+                configObj = JSON.parse(input);
+            } catch (e) {
+                alert('Invalid JSON. Please verify syntax.');
+                return;
+            }
+
+            const saveBtn = document.querySelector('#config-modal .btn-primary');
+            const originalContent = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<div class="loading-spinner" style="width: 16px; height: 16px;"></div> Syncing...';
+            saveBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_CONFIG.base}/api/admin/games/${selectedGameId}/config`, {
+                    method: 'PATCH',
+                    headers: {
+                        'X-Arcadia-Admin-Key': API_CONFIG.key,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ config: configObj })
+                });
+
+                if (!response.ok) throw new Error('Sync Failed');
+
+                addToLog(`Remote configuration pushed for experience ${selectedGameId}`, 'success');
+                closeConfig();
+            } catch (err) {
+                console.error(err);
+                alert('Failed to sync config to edge: ' + err.message);
+            } finally {
+                saveBtn.innerHTML = originalContent;
+                saveBtn.disabled = false;
+            }
+        }
+
+        // --- Live Bridge Activity ---
+        function addToBridgeFeed(type, action, payload = {}) {
+            const feed = document.getElementById('bridge-feed');
+            if (!feed) return;
+
+            const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const log = document.createElement('div');
+            log.style.padding = '4px 0';
+            log.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+            log.style.animation = 'fadeIn 0.3s ease-out';
+
+            const colorMap = {
+                'LIFECYCLE': '#94a3b8',
+                'APP': '#6366f1',
+                'UX': '#10b981',
+                'ERROR': '#ef4444'
+            };
+
+            log.innerHTML = `
+                <span style="color: var(--text-tertiary)">[${time}]</span>
+                <span style="color: ${colorMap[type] || '#FFF'}; font-weight: 700;">${type}_${action}</span>
+                <span style="color: var(--text-tertiary)">: ${JSON.stringify(payload).substring(0, 40)}${JSON.stringify(payload).length > 40 ? '...' : ''}</span>
+            `;
+
+            feed.prepend(log);
+            while (feed.children.length > 50) feed.lastChild.remove();
+        }
+
+        // Simulate some bridge activity for "wow" factor
+        setInterval(() => {
+            const events = [
+                { type: 'LIFECYCLE', action: 'HEARTBEAT', payload: { status: 'healthy', memory: '42MB' } },
+                { type: 'APP', action: 'STATE_UPDATE', payload: { key: 'progress', value: Math.random() } },
+                { type: 'UX', action: 'HAPTIC_TRIGGERED', payload: { type: 'selection' } }
+            ];
+            const event = events[Math.floor(Math.random() * events.length)];
+            addToBridgeFeed(event.type, event.action, event.payload);
+        }, 4000);
+
+        // --- New Game Modal Functions ---
+        let selectedGameZip = null;
+        let selectedThumbnail = null;
+        let categories = ['arcade', 'puzzle', 'action', 'casual', 'strategy']; // Local categories for now
+
+        function openNewGameModal() {
+            const modal = document.getElementById('new-game-modal');
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('active');
+                lucide.createIcons();
+            }, 10);
+            resetNewGameForm();
+        }
+
+        function closeNewGameModal() {
+            const modal = document.getElementById('new-game-modal');
+            modal.classList.remove('active');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                resetNewGameForm();
+            }, 400);
+        }
+
+        function resetNewGameForm() {
+            document.getElementById('new-game-form')?.reset();
+            document.getElementById('game-zip-label').textContent = 'Drop ZIP or click to browse';
+            document.getElementById('thumb-label').textContent = 'Upload image';
+            document.getElementById('game-zip-drop')?.classList.remove('has-file');
+            document.getElementById('thumb-drop')?.classList.remove('has-file');
+            selectedGameZip = null;
+            selectedThumbnail = null;
+        }
+
+        function handleZipSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedGameZip = file;
+                document.getElementById('game-zip-label').textContent = file.name;
+                document.getElementById('game-zip-drop').classList.add('has-file');
+            }
+        }
+
+        function handleThumbSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedThumbnail = file;
+                document.getElementById('thumb-label').textContent = file.name;
+                document.getElementById('thumb-drop').classList.add('has-file');
+            }
+        }
+
+        // Form submission for new game
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('new-game-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const title = document.getElementById('game-title').value.trim();
+                const type = document.getElementById('game-type').value;
+                const category = document.getElementById('game-category').value;
+                const description = document.getElementById('game-description').value;
+                const version = document.getElementById('game-version').value || 'v1.0.0';
+
+                if (!title) {
+                    showToast('Please enter a title', 'error');
+                    return;
+                }
+
+                if (!selectedGameZip) {
+                    showToast('Please select a ZIP file', 'error');
+                    return;
+                }
+
+                const deployBtn = document.getElementById('deploy-btn');
+                const originalContent = deployBtn.innerHTML;
+                deployBtn.innerHTML = '<div class="loading-spinner" style="width: 16px; height: 16px;"></div> Deploying...';
+                deployBtn.disabled = true;
+
+                try {
+                    const formData = new FormData();
+                    formData.append('title', title);
+                    formData.append('type', type);
+                    formData.append('category', category);
+                    formData.append('description', description);
+                    formData.append('version_tag', version);
+                    formData.append('game_zip', selectedGameZip);
+                    if (selectedThumbnail) {
+                        formData.append('thumbnail', selectedThumbnail);
+                    }
+
+                    const response = await fetch(`${API_CONFIG.base}/api/admin/games/upload`, {
+                        method: 'POST',
+                        headers: { 'X-Arcadia-Admin-Key': API_CONFIG.key },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.message || 'Deployment failed');
+                    }
+
+                    showToast('Experience deployed successfully!', 'success');
+                    closeNewGameModal();
+                    fetchGames(); // Refresh game list
+                    addToLog(`New experience "${title}" deployed to edge network`, 'success');
+                } catch (err) {
+                    console.error('Deploy error:', err);
+                    showToast(err.message || 'Deployment failed', 'error');
+                } finally {
+                    deployBtn.innerHTML = originalContent;
+                    deployBtn.disabled = false;
+                }
+            });
+        });
+
+        // --- New Category Modal Functions ---
+        let selectedCategoryIcon = 'gamepad-2';
+        let selectedCategoryColor = '#6366F1';
+
+        function openNewCategoryModal() {
+            const modal = document.getElementById('new-category-modal');
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('active');
+                lucide.createIcons();
+                setupCategoryPickers();
+            }, 10);
+        }
+
+        function closeNewCategoryModal() {
+            const modal = document.getElementById('new-category-modal');
+            modal.classList.remove('active');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                document.getElementById('new-category-form')?.reset();
+                selectedCategoryIcon = 'gamepad-2';
+                selectedCategoryColor = '#6366F1';
+            }, 400);
+        }
+
+        function setupCategoryPickers() {
+            // Icon picker
+            document.querySelectorAll('.icon-option').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.icon-option').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedCategoryIcon = btn.dataset.icon;
+                });
+            });
+
+            // Color picker
+            document.querySelectorAll('.color-option').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.color-option').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedCategoryColor = btn.dataset.color;
+                });
+            });
+        }
+
+        // Form submission for new category
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('new-category-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const name = document.getElementById('category-name').value.trim();
+                const description = document.getElementById('category-description').value;
+
+                if (!name) {
+                    showToast('Please enter a category name', 'error');
+                    return;
+                }
+
+                const createBtn = document.getElementById('create-category-btn');
+                const originalContent = createBtn.innerHTML;
+                createBtn.innerHTML = '<div class="loading-spinner" style="width: 16px; height: 16px;"></div> Creating...';
+                createBtn.disabled = true;
+
+                try {
+                    // For now, add to local categories array
+                    const slug = name.toLowerCase().replace(/\s+/g, '-');
+                    if (!categories.includes(slug)) {
+                        categories.push(slug);
+                    }
+
+                    // Update category dropdown in game modal
+                    const categorySelect = document.getElementById('game-category');
+                    if (categorySelect && !Array.from(categorySelect.options).some(opt => opt.value === slug)) {
+                        const option = document.createElement('option');
+                        option.value = slug;
+                        option.textContent = name;
+                        categorySelect.appendChild(option);
+                    }
+
+                    showToast(`Category "${name}" created!`, 'success');
+                    closeNewCategoryModal();
+                    addToLog(`New category "${name}" registered in system`, 'success');
+                } catch (err) {
+                    console.error('Category creation error:', err);
+                    showToast(err.message || 'Failed to create category', 'error');
+                } finally {
+                    createBtn.innerHTML = originalContent;
+                    createBtn.disabled = false;
+                }
+            });
+        });
+
+        // --- Toast Notification System ---
+        function showToast(message, type = 'info') {
+            const existingToast = document.querySelector('.toast');
+            if (existingToast) existingToast.remove();
+
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info'}" style="width: 18px;"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // Update Escape key to close all modals
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closePreview();
+                closeConfig();
+                closeNewGameModal();
+                closeNewCategoryModal();
+            }
+        });
+
+        function triggerUpload() { document.getElementById('file-input').click(); }
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            switchPage('dashboard');
+            startSimulatedActivity();
+        });
+
+        // Styles for new elements
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+            .main-content { transition: all 0.6s cubic-bezier(0.2, 0, 0, 1); }
+            .glass-panel { background: var(--bg-obsidian); border: 1px solid var(--border-subtle); border-radius: 24px; backdrop-filter: blur(10px); }
+            .bar-chart-bar:hover { opacity: 1; transform: scaleX(1.1); }
+            .filter-tabs { display: flex; gap: 12px; margin-top: 24px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px; }
+            .filter-tabs .tab { background: none; border: none; color: var(--text-tertiary); padding: 8px 16px; cursor: pointer; border-radius: 8px; transition: all 0.3s; }
+            .filter-tabs .tab.active { background: var(--bg-surface); color: white; }
+            .search-box { position: relative; display: flex; align-items: center; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-surface); padding: 0 16px; }
+            .search-input { background: none; border: none; color: white; padding: 12px 8px; width: 240px; outline: none; }
+            
+            /* Form Styles */
+            .form-group { display: flex; flex-direction: column; gap: 8px; }
+            .form-label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); }
+            .form-input { 
+                padding: 14px 16px; 
+                background: var(--bg-surface); 
+                border: 1px solid var(--border-subtle); 
+                border-radius: 12px; 
+                color: white; 
+                font-size: 0.95rem;
+                transition: all 0.3s ease;
+                outline: none;
+            }
+            .form-input:focus { 
+                border-color: var(--accent); 
+                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+            }
+            .form-input::placeholder { color: var(--text-tertiary); }
+            select.form-input { cursor: pointer; }
+            textarea.form-input { resize: vertical; min-height: 80px; }
+
+            /* File Drop Zone */
+            .file-drop-zone {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                padding: 24px 16px;
+                background: var(--bg-surface);
+                border: 2px dashed var(--border-subtle);
+                border-radius: 16px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-align: center;
+            }
+            .file-drop-zone:hover {
+                border-color: var(--accent);
+                background: rgba(99, 102, 241, 0.05);
+            }
+            .file-drop-zone.has-file {
+                border-color: var(--success);
+                background: rgba(16, 185, 129, 0.08);
+            }
+            .file-drop-zone span {
+                font-size: 0.8rem;
+                color: var(--text-tertiary);
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .file-drop-zone.has-file span { color: var(--success); }
+
+            /* Icon Picker */
+            .icon-picker {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .icon-option {
+                width: 44px;
+                height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--bg-surface);
+                border: 2px solid var(--border-subtle);
+                border-radius: 12px;
+                cursor: pointer;
+                color: var(--text-tertiary);
+                transition: all 0.2s ease;
+            }
+            .icon-option:hover { 
+                border-color: var(--accent); 
+                color: var(--accent);
+                transform: scale(1.05);
+            }
+            .icon-option.active { 
+                border-color: var(--accent); 
+                background: rgba(99, 102, 241, 0.15);
+                color: var(--accent);
+            }
+            .icon-option svg { width: 20px; height: 20px; }
+
+            /* Color Picker */
+            .color-picker {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+            .color-option {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                border: 3px solid transparent;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                position: relative;
+            }
+            .color-option:hover { transform: scale(1.15); }
+            .color-option.active { 
+                border-color: white;
+                box-shadow: 0 0 0 3px rgba(255,255,255,0.2);
+            }
+            .color-option.active::after {
+                content: '✓';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: white;
+                font-size: 14px;
+                font-weight: bold;
+                text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            }
+
+            /* Toast Notifications */
+            .toast {
+                position: fixed;
+                bottom: 32px;
+                right: 32px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 16px 24px;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: 16px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+                z-index: 10000;
+                transform: translateY(100px);
+                opacity: 0;
+                transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            .toast.show { 
+                transform: translateY(0); 
+                opacity: 1;
+            }
+            .toast-success { border-color: var(--success); }
+            .toast-success svg { color: var(--success); }
+            .toast-error { border-color: var(--danger); }
+            .toast-error svg { color: var(--danger); }
+            .toast-info svg { color: var(--accent); }
+
+            /* Modal title with icon */
+            .modal-title {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+
+</html>

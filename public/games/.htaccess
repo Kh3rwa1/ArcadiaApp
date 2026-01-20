@@ -1,0 +1,10 @@
+# Disable PHP execution in game asset directories
+<FilesMatch "\.php$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Enable CORS for game assets (Optional/Customizable)
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>

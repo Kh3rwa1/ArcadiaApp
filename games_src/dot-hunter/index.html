@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Dot Hunter</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #dot {
+            width: 60px;
+            height: 60px;
+            background: #ff0055;
+            border-radius: 50%;
+            position: absolute;
+            cursor: pointer;
+            box-shadow: 0 0 20px #ff0055;
+            transition: transform 0.1s;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="score" style="position:fixed; top:20px; font-size:2rem;">0</div>
+    <div id="dot"></div>
+    <script>
+        let score = 0; const dot = document.getElementById('dot'); const scoreEl = document.getElementById('score');
+        function move() {
+            dot.style.left = Math.random() * (window.innerWidth - 60) + 'px';
+            dot.style.top = Math.random() * (window.innerHeight - 60) + 'px';
+        }
+        dot.onclick = () => { score++; scoreEl.innerText = score; move(); if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ type: "GAMEPLAY", action: "SCORE_UPDATE", payload: { score } })); };
+        move();
+    </script>
+</body>
+
+</html>

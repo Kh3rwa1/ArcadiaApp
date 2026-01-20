@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hyper Jump | Arcadia</title>
+    <style>
+        :root {
+            --void: #000000;
+            --accent: #10B981;
+            --text: #F9FAFB;
+        }
+
+        body {
+            margin: 0;
+            background: var(--void);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #ui {
+            position: absolute;
+            top: 60px;
+            left: 24px;
+            pointer-events: none;
+        }
+
+        #score {
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: var(--void);
+            padding: 16px 48px;
+            border-radius: 12px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="score">0m</div>
+    </div>
+    <div id="overlay">
+        <h1 style="font-size: 40px; letter-spacing: -2px;">HYPER JUMP</h1>
+        <p style="color: #9CA3AF; margin-bottom: 32px;">Tap sides to move</p>
+        <button class="btn" id="start-btn">ASCEND</button>
+    </div>
+    <canvas id="game"></canvas>
+
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
+
+        let width, height, playing = false, score = 0, cameraY = 0;
+        let player = { x: 0, y: 0, w: 30, h: 30, vx: 0, vy: 0 };
+        let platforms = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            player.x = width / 2;
+            player.y = height - 100;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function post(type, action, payload = {}) {
+            const msg = JSON.stringify({ version: "1.0", type, action, payload });
+            if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(msg);
+            } else {
+                window.parent.postMessage(msg, '*');
+            }
+        }
+
+        post("LIFECYCLE", "READY");
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation();
+            playing = true;
+            overlay.style.display = 'none';
+            score = 0;
+            cameraY = 0;
+            player.y = height - 100;
+            player.vy = -15;
+            platforms = [];
+            for (let i = 0; i < 10; i++) spawnPlatform(height - i * 150);
+            post("GAMEPLAY", "GAME_START");
+        };
+
+        function spawnPlatform(y) {
+            platforms.push({ x: Math.random() * (width - 80), y, w: 80, h: 10 });
+        }
+
+        window.addEventListener('touchstart', (e) => {
+            if (!playing) return;
+            const touchX = e.touches[0].clientX;
+            player.vx = touchX < width / 2 ? -7 : 7;
+        });
+
+        window.addEventListener('touchend', () => player.vx = 0);
+
+        function update() {
+            if (!playing) return;
+
+            player.vy += 0.5;
+            player.y += player.vy;
+            player.x += player.vx;
+
+            if (player.x < 0) player.x = width;
+            if (player.x > width) player.x = 0;
+
+            if (player.y < cameraY + height / 2) {
+                cameraY = player.y - height / 2;
+                score = Math.max(score, Math.floor(-cameraY / 10));
+                scoreEl.innerText = score + 'm';
+                if (score % 10 === 0) post("GAMEPLAY", "SCORE_UPDATE", { score });
+            }
+
+            platforms.forEach(p => {
+                if (player.vy > 0 && player.x + player.w > p.x && player.x < p.x + p.w && player.y + player.h > p.y && player.y + player.h < p.y + 20) {
+                    player.vy = -15;
+                    post("GAMEPLAY", "EVENT", { action: "BOUNCE" });
+                }
+            });
+
+            if (platforms[platforms.length - 1].y > cameraY) {
+                spawnPlatform(platforms[platforms.length - 1].y - 150);
+            }
+
+            if (player.y > cameraY + height) {
+                playing = false;
+                overlay.style.display = 'flex';
+                overlay.querySelector('h1').innerText = "LIMIT REACHED";
+                post("GAMEPLAY", "GAME_COMPLETE", { score, status: "loss" });
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.save();
+            ctx.translate(0, -cameraY);
+
+            ctx.fillStyle = '#10B981';
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            ctx.fillStyle = '#333';
+            platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+
+            ctx.restore();
+
+            requestAnimationFrame(() => {
+                update();
+                draw();
+            });
+        }
+        draw();
+    </script>
+</body>
+
+</html>

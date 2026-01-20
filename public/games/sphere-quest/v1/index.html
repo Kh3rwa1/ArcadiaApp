@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Sphere Quest</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0a0a18;
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        #game-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-item {
+            text-align: center;
+        }
+
+        .hud-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .hud-value {
+            font-size: 32px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(139, 92, 246, 0.8);
+        }
+
+        /* Win Screen */
+        #win-screen {
+            position: absolute;
+            inset: 0;
+            background: rgba(10, 10, 24, 0.95);
+            backdrop-filter: blur(20px);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        #win-screen.active {
+            display: flex;
+        }
+
+        .win-title {
+            font-size: 48px;
+            font-weight: 900;
+            color: #8B5CF6;
+            text-shadow: 0 0 50px rgba(139, 92, 246, 0.8);
+            margin-bottom: 20px;
+        }
+
+        .win-time {
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .next-btn {
+            margin-top: 40px;
+            padding: 18px 56px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #0a0a18;
+            background: linear-gradient(135deg, #8B5CF6, #A78BFA);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: transform 0.2s;
+        }
+
+        .next-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Start Screen */
+        #start-screen {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(10, 10, 24, 0.95) 0%, rgba(10, 10, 24, 1) 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        #start-screen.hidden {
+            display: none;
+        }
+
+        .game-title {
+            font-size: 52px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 60px rgba(139, 92, 246, 1);
+            margin-bottom: 8px;
+            letter-spacing: 4px;
+        }
+
+        .game-subtitle {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            margin-bottom: 60px;
+        }
+
+        .start-btn {
+            padding: 22px 70px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            background: transparent;
+            border: 2px solid rgba(139, 92, 246, 0.8);
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            transition: all 0.3s;
+        }
+
+        .start-btn:hover {
+            background: rgba(139, 92, 246, 0.2);
+        }
+
+        /* Controls hint */
+        .controls-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 1px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <div id="hud">
+            <div class="hud-item">
+                <div class="hud-label">Level</div>
+                <div class="hud-value" id="level">1</div>
+            </div>
+            <div class="hud-item">
+                <div class="hud-label">Time</div>
+                <div class="hud-value" id="time">0:00</div>
+            </div>
+        </div>
+
+        <div id="win-screen">
+            <div class="win-title">COMPLETE</div>
+            <div class="win-time" id="win-time">Time: 0:00</div>
+            <button class="next-btn" id="next-btn">Next Level</button>
+        </div>
+
+        <div id="start-screen">
+            <div class="game-title">SPHERE QUEST</div>
+            <div class="game-subtitle">Marble Maze Challenge</div>
+            <button class="start-btn" id="start-btn">START</button>
+        </div>
+
+        <div class="controls-hint">Tilt device or use Arrow Keys / WASD</div>
+    </div>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════════
+        // SPHERE QUEST - Babylon.js Marble Puzzle
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        const container = document.getElementById('game-container');
+        const levelEl = document.getElementById('level');
+        const timeEl = document.getElementById('time');
+        const winScreen = document.getElementById('win-screen');
+        const winTimeEl = document.getElementById('win-time');
+        const nextBtn = document.getElementById('next-btn');
+        const startScreen = document.getElementById('start-screen');
+        const startBtn = document.getElementById('start-btn');
+
+        let canvas, engine, scene, camera;
+        let ball, platform, goal;
+        let currentLevel = 1;
+        let startTime = 0;
+        let isPlaying = false;
+        let tiltX = 0, tiltY = 0;
+
+        const LEVELS = [
+            {
+                size: 10,
+                ballPos: [-3, 1, -3],
+                goalPos: [3, 0.3, 3],
+                walls: [
+                    [0, 0.5, -3, 6, 1, 0.3],
+                    [-2, 0.5, 2, 0.3, 1, 4],
+                ]
+            },
+            {
+                size: 12,
+                ballPos: [-4, 1, -4],
+                goalPos: [4, 0.3, 4],
+                walls: [
+                    [0, 0.5, -2, 8, 1, 0.3],
+                    [2, 0.5, 2, 0.3, 1, 6],
+                    [-2, 0.5, 0, 4, 1, 0.3],
+                ]
+            },
+            {
+                size: 14,
+                ballPos: [-5, 1, -5],
+                goalPos: [5, 0.3, 5],
+                walls: [
+                    [0, 0.5, -4, 10, 1, 0.3],
+                    [-3, 0.5, 0, 0.3, 1, 6],
+                    [3, 0.5, 2, 0.3, 1, 6],
+                    [0, 0.5, 4, 6, 1, 0.3],
+                ]
+            }
+        ];
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Babylon.js Setup
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function init() {
+            canvas = document.createElement('canvas');
+            container.insertBefore(canvas, container.firstChild);
+
+            engine = new BABYLON.Engine(canvas, true);
+            createScene();
+
+            engine.runRenderLoop(() => {
+                if (scene) {
+                    if (isPlaying) update();
+                    scene.render();
+                }
+            });
+
+            window.addEventListener('resize', () => engine.resize());
+
+            // Keyboard controls
+            window.addEventListener('keydown', onKeyDown);
+            window.addEventListener('keyup', onKeyUp);
+
+            // Device orientation
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', onDeviceOrientation);
+            }
+
+            startBtn.addEventListener('click', startGame);
+            nextBtn.addEventListener('click', nextLevel);
+
+            scene.render();
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // Arcadia Bridge Integration
+            // ═══════════════════════════════════════════════════════════════════════════
+            window.addEventListener('message', (e) => {
+                try {
+                    const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+                    if (data.type === 'LIFECYCLE') {
+                        if (data.action === 'LIFECYCLE_PAUSE') pauseGame();
+                        if (data.action === 'LIFECYCLE_RESUME') resumeGame();
+                    if (data.action === 'LIFECYCLE_STOP') pauseGame();
+                    }
+                } catch (err) { }
+            });
+            window.addEventListener('ArcadiaBridge', (e) => {
+                const data = e.detail;
+                if (data.action === 'LIFECYCLE_PAUSE') pauseGame();
+                if (data.action === 'LIFECYCLE_RESUME') resumeGame();
+                    if (data.action === 'LIFECYCLE_STOP') pauseGame();
+            });
+            window.parent?.postMessage({ type: 'READY' }, '*');
+        }
+
+        function createScene() {
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.04, 0.04, 0.1, 1);
+
+            // Physics
+            scene.enablePhysics(new BABYLON.Vector3(0, -15, 0), new BABYLON.CannonJSPlugin());
+
+            // Camera
+            camera = new BABYLON.ArcRotateCamera('camera', 0, Math.PI / 4, 20, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, false);
+
+            // Lights
+            const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
+            hemi.intensity = 0.6;
+
+            const point = new BABYLON.PointLight('point', new BABYLON.Vector3(0, 10, 0), scene);
+            point.intensity = 0.8;
+            point.diffuse = new BABYLON.Color3(0.5, 0.3, 0.9);
+
+            // Glow
+            const glow = new BABYLON.GlowLayer('glow', scene);
+            glow.intensity = 0.4;
+
+            // Ball
+            ball = BABYLON.MeshBuilder.CreateSphere('ball', { diameter: 0.8 }, scene);
+            const ballMat = new BABYLON.StandardMaterial('ballMat', scene);
+            ballMat.diffuseColor = new BABYLON.Color3(0.9, 0.9, 1);
+            ballMat.emissiveColor = new BABYLON.Color3(0.3, 0.2, 0.5);
+            ballMat.specularColor = new BABYLON.Color3(1, 1, 1);
+            ball.material = ballMat;
+            ball.physicsImpostor = new BABYLON.PhysicsImpostor(ball, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, friction: 0.5, restitution: 0.2 }, scene);
+
+            setupLevel(0);
+        }
+
+        function setupLevel(index) {
+            const level = LEVELS[index];
+
+            // Clear old level
+            scene.meshes.filter(m => m.name.startsWith('wall') || m.name === 'platform' || m.name === 'goal').forEach(m => m.dispose());
+
+            // Platform
+            platform = BABYLON.MeshBuilder.CreateBox('platform', { width: level.size, height: 0.5, depth: level.size }, scene);
+            const platformMat = new BABYLON.StandardMaterial('platformMat', scene);
+            platformMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.15);
+            platformMat.emissiveColor = new BABYLON.Color3(0.05, 0.05, 0.08);
+            platform.material = platformMat;
+            platform.position.y = -0.25;
+            platform.physicsImpostor = new BABYLON.PhysicsImpostor(platform, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, friction: 0.8 }, scene);
+
+            // Edges
+            const edgeThickness = 0.3;
+            const edges = [
+                [0, 0.25, -level.size / 2, level.size, 0.5, edgeThickness],
+                [0, 0.25, level.size / 2, level.size, 0.5, edgeThickness],
+                [-level.size / 2, 0.25, 0, edgeThickness, 0.5, level.size],
+                [level.size / 2, 0.25, 0, edgeThickness, 0.5, level.size]
+            ];
+            edges.forEach((e, i) => {
+                const edge = BABYLON.MeshBuilder.CreateBox(`wall_edge${i}`, { width: e[3], height: e[4], depth: e[5] }, scene);
+                edge.position = new BABYLON.Vector3(e[0], e[1], e[2]);
+                const edgeMat = new BABYLON.StandardMaterial(`edgeMat${i}`, scene);
+                edgeMat.diffuseColor = new BABYLON.Color3(0.2, 0.1, 0.3);
+                edgeMat.emissiveColor = new BABYLON.Color3(0.1, 0.05, 0.15);
+                edge.material = edgeMat;
+                edge.physicsImpostor = new BABYLON.PhysicsImpostor(edge, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0 }, scene);
+            });
+
+            // Walls
+            level.walls.forEach((w, i) => {
+                const wall = BABYLON.MeshBuilder.CreateBox(`wall${i}`, { width: w[3], height: w[4], depth: w[5] }, scene);
+                wall.position = new BABYLON.Vector3(w[0], w[1], w[2]);
+                const wallMat = new BABYLON.StandardMaterial(`wallMat${i}`, scene);
+                wallMat.diffuseColor = new BABYLON.Color3(0.3, 0.15, 0.4);
+                wallMat.emissiveColor = new BABYLON.Color3(0.15, 0.08, 0.2);
+                wall.material = wallMat;
+                wall.physicsImpostor = new BABYLON.PhysicsImpostor(wall, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0 }, scene);
+            });
+
+            // Goal
+            goal = BABYLON.MeshBuilder.CreateCylinder('goal', { diameter: 1.2, height: 0.1 }, scene);
+            const goalMat = new BABYLON.StandardMaterial('goalMat', scene);
+            goalMat.diffuseColor = new BABYLON.Color3(0.5, 0.8, 0.3);
+            goalMat.emissiveColor = new BABYLON.Color3(0.3, 0.6, 0.2);
+            goal.material = goalMat;
+            goal.position = new BABYLON.Vector3(...level.goalPos);
+
+            // Ball position
+            ball.position = new BABYLON.Vector3(...level.ballPos);
+            ball.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
+            ball.physicsImpostor.setAngularVelocity(BABYLON.Vector3.Zero());
+
+            camera.setTarget(new BABYLON.Vector3(0, 0, 0));
+            camera.radius = level.size * 1.5;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Game Loop
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function update() {
+            // Apply tilt force
+            const force = new BABYLON.Vector3(tiltX * 5, 0, tiltY * 5);
+            ball.physicsImpostor.applyForce(force, ball.getAbsolutePosition());
+
+            // Update timer
+            const elapsed = (Date.now() - startTime) / 1000;
+            const mins = Math.floor(elapsed / 60);
+            const secs = Math.floor(elapsed % 60);
+            timeEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+            // Check goal
+            const dist = BABYLON.Vector3.Distance(ball.position, goal.position);
+            if (dist < 0.8 && ball.physicsImpostor.getLinearVelocity().length() < 2) {
+                levelComplete();
+            }
+
+            // Fall off
+            if (ball.position.y < -5) {
+                ball.position = new BABYLON.Vector3(...LEVELS[currentLevel - 1].ballPos);
+                ball.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Input
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function onKeyDown(e) {
+            if (!isPlaying) return;
+            if (e.key === 'ArrowLeft' || e.key === 'a') tiltX = -1;
+            if (e.key === 'ArrowRight' || e.key === 'd') tiltX = 1;
+            if (e.key === 'ArrowUp' || e.key === 'w') tiltY = -1;
+            if (e.key === 'ArrowDown' || e.key === 's') tiltY = 1;
+        }
+
+        function onKeyUp(e) {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'ArrowRight' || e.key === 'd') tiltX = 0;
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'ArrowDown' || e.key === 's') tiltY = 0;
+        }
+
+        function onDeviceOrientation(e) {
+            if (!isPlaying) return;
+            tiltX = Math.max(-1, Math.min(1, e.gamma / 30));
+            tiltY = Math.max(-1, Math.min(1, e.beta / 30));
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Game State
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            isPlaying = true;
+            currentLevel = 1;
+            levelEl.textContent = '1';
+            startTime = Date.now();
+            setupLevel(0);
+
+            window.parent?.postMessage({ type: 'GAME_STARTED' }, '*');
+        }
+
+        function levelComplete() {
+            isPlaying = false;
+            const elapsed = (Date.now() - startTime) / 1000;
+            const mins = Math.floor(elapsed / 60);
+            const secs = Math.floor(elapsed % 60);
+            winTimeEl.textContent = `Time: ${mins}:${secs.toString().padStart(2, '0')}`;
+
+            if (currentLevel >= 3) {
+                nextBtn.textContent = 'Finish';
+                window.parent?.postMessage({ type: 'SCORE_UPDATE', score: Math.floor(1000 - elapsed * 10), final: true }, '*');
+            }
+
+            winScreen.classList.add('active');
+        }
+
+        function nextLevel() {
+            winScreen.classList.remove('active');
+
+            if (currentLevel >= 3) {
+                startScreen.classList.remove('hidden');
+                return;
+            }
+
+            currentLevel++;
+            levelEl.textContent = currentLevel;
+            startTime = Date.now();
+            setupLevel(currentLevel - 1);
+            isPlaying = true;
+        }
+
+        function pauseGame() {
+            isPlaying = false;
+        }
+
+        function resumeGame() {
+            if (startScreen.classList.contains('hidden') && !winScreen.classList.contains('active')) {
+                isPlaying = true;
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

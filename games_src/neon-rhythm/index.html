@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Rhythm | Arcadia</title>
+    <style>
+        :root {
+            --void: #000000;
+            --accent: #8B5CF6;
+            --text: #F9FAFB;
+        }
+
+        body {
+            margin: 0;
+            background: var(--void);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui {
+            position: absolute;
+            top: 60px;
+            text-align: center;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        #score {
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: -2px;
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            padding: 16px 48px;
+            border-radius: 32px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 20px var(--accent);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="score">0</div>
+    </div>
+    <div id="overlay">
+        <h1 style="font-size: 40px; margin-bottom: 8px;">NEON RHYTHM</h1>
+        <p style="color: #9CA3AF; margin-bottom: 32px;">Tap when circles align</p>
+        <button class="btn" id="start-btn">START BEAT</button>
+    </div>
+    <canvas id="game"></canvas>
+
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
+
+        let width, height, playing = false, score = 0;
+        let circles = [];
+        let targetRadius = 60;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function post(type, action, payload = {}) {
+            if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ version: "1.0", type, action, payload }));
+            }
+        }
+
+        post("LIFECYCLE", "READY");
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation();
+            playing = true;
+            overlay.style.display = 'none';
+            score = 0;
+            circles = [];
+            post("GAMEPLAY", "GAME_START");
+        };
+
+        function tap() {
+            if (!playing) return;
+            let hit = false;
+            circles.forEach((c, i) => {
+                const diff = Math.abs(c.r - targetRadius);
+                if (diff < 15) {
+                    hit = true;
+                    score += diff < 5 ? 100 : 50;
+                    circles.splice(i, 1);
+                }
+            });
+
+            if (hit) {
+                scoreEl.innerText = score;
+                post("GAMEPLAY", "SCORE_UPDATE", { score });
+            } else {
+                // Shake effect or feedback could go here
+                post("GAMEPLAY", "EVENT", { action: "MISS" });
+            }
+        }
+
+        window.addEventListener('touchstart', tap);
+        window.addEventListener('mousedown', tap);
+
+        function update() {
+            if (!playing) return;
+            if (Math.random() < 0.02) {
+                circles.push({ r: 250 });
+            }
+            circles.forEach((c, i) => {
+                c.r -= 2;
+                if (c.r < targetRadius - 20) {
+                    circles.splice(i, 1);
+                    // Miss
+                    if (score > 0) score = Math.max(0, score - 20);
+                    scoreEl.innerText = score;
+                }
+            });
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+
+            // Target circle
+            ctx.strokeStyle = '#8B5CF6';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, targetRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 0.2;
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+
+            // Incoming circles
+            circles.forEach(c => {
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(width / 2, height / 2, c.r, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+
+            requestAnimationFrame(() => {
+                update();
+                draw();
+            });
+        }
+        draw();
+    </script>
+</body>
+
+</html>

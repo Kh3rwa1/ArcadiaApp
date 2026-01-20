@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Color Match | Arcadia</title>
+    <style>
+        :root {
+            --bg: #000000;
+            --text: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #word {
+            font-size: 80px;
+            font-weight: 900;
+            letter-spacing: -2px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+
+        .btn-container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            padding: 0 20px;
+            box-sizing: border-box;
+            max-width: 400px;
+        }
+
+        .btn {
+            flex: 1;
+            height: 80px;
+            border-radius: 20px;
+            border: none;
+            font-size: 24px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-no {
+            background: #EF4444;
+            color: white;
+            box-shadow: 0 4px 0 #B91C1C;
+        }
+
+        .btn-yes {
+            background: #10B981;
+            color: white;
+            box-shadow: 0 4px 0 #059669;
+        }
+
+        #score {
+            position: absolute;
+            top: 40px;
+            font-size: 32px;
+            font-weight: 700;
+            opacity: 0.5;
+        }
+
+        #timer-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 8px;
+            background: #ffffff;
+            width: 100%;
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .start-btn {
+            background: #3B82F6;
+            color: white;
+            padding: 20px 60px;
+            font-size: 24px;
+            font-weight: 800;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="timer-bar"></div>
+    <div id="score">0</div>
+    <div id="word">READY</div>
+
+    <div class="btn-container">
+        <button class="btn btn-no" onclick="handleChoice(false)">NO</button>
+        <button class="btn btn-yes" onclick="handleChoice(true)">YES</button>
+    </div>
+
+    <div id="overlay">
+        <h1 style="font-size: 48px; margin-bottom: 8px;">COLOR MATCH</h1>
+        <p style="opacity: 0.7; margin-bottom: 40px; text-align: center;">Does the meaning match the color?</p>
+        <button class="start-btn" onclick="startGame()">PLAY</button>
+    </div>
+
+    <script>
+        const COLORS = [
+            { name: 'RED', hex: '#EF4444' },
+            { name: 'BLUE', hex: '#3B82F6' },
+            { name: 'GREEN', hex: '#10B981' },
+            { name: 'YELLOW', hex: '#F59E0B' },
+            { name: 'PURPLE', hex: '#8B5CF6' }
+        ];
+
+        let score = 0;
+        let isPlaying = false;
+        let timeLeft = 0;
+        let currentMatch = false;
+        let gameLoop;
+        const UI = {
+            width: window.innerWidth,
+            height: window.innerHeight
+        };
+
+        const wordEl = document.getElementById('word');
+        const scoreEl = document.getElementById('score');
+        const timerEl = document.getElementById('timer-bar');
+        const overlay = document.getElementById('overlay');
+
+        function Bridge(action, payload = {}) {
+            const msg = JSON.stringify({ version: "1.0", type: "GAMEPLAY", action, payload });
+            if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(msg);
+            } else {
+                window.parent.postMessage(msg, '*');
+            }
+        }
+
+        // Send Ready signal
+        Bridge("LIFECYCLE", "READY");
+
+        function startGame() {
+            score = 0;
+            scoreEl.innerText = score;
+            overlay.style.display = 'none';
+            isPlaying = true;
+            nextRound();
+            Bridge("GAME_START");
+        }
+
+        function nextRound() {
+            if (!isPlaying) return;
+
+            // 50% chance of matching
+            currentMatch = Math.random() > 0.5;
+            
+            const wordIdx = Math.floor(Math.random() * COLORS.length);
+            let colorIdx = wordIdx;
+            
+            if (!currentMatch) {
+                do {
+                    colorIdx = Math.floor(Math.random() * COLORS.length);
+                } while (colorIdx === wordIdx);
+            }
+
+            wordEl.innerText = COLORS[wordIdx].name;
+            wordEl.style.color = COLORS[colorIdx].hex;
+            
+            // Reset timer (decreases as score increases)
+            const duration = Math.max(1000, 2000 - (score * 50)); 
+            startTimer(duration);
+        }
+
+        function startTimer(ms) {
+            cancelAnimationFrame(gameLoop);
+            const start = performance.now();
+            
+            function update(time) {
+                if (!isPlaying) return;
+                const elapsed = time - start;
+                const remaining = Math.max(0, 1 - (elapsed / ms));
+                timerEl.style.width = (remaining * 100) + '%';
+                
+                if (remaining <= 0) {
+                    gameOver();
+                } else {
+                    gameLoop = requestAnimationFrame(update);
+                }
+            }
+            gameLoop = requestAnimationFrame(update);
+        }
+
+        function handleChoice(choice) {
+            if (!isPlaying) return;
+            
+            if (choice === currentMatch) {
+                score++;
+                scoreEl.innerText = score;
+                Bridge("SCORE_UPDATE", { score });
+                nextRound();
+            } else {
+                gameOver();
+            }
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            overlay.style.display = 'flex';
+            overlay.querySelector('h1').innerText = "GAME OVER";
+            overlay.querySelector('button').innerText = "TRY AGAIN";
+            Bridge("GAME_COMPLETE", { score, status: "loss" });
+        }
+    </script>
+</body>
+
+</html>

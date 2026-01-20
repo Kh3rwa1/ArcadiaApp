@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Neon Knights</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #05050f;
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        #game-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 24px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-score {
+            font-size: 42px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(239, 68, 68, 0.8);
+            letter-spacing: 2px;
+        }
+
+        .hud-wave {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .hud-wave span {
+            font-size: 24px;
+            font-weight: 700;
+            color: #EF4444;
+        }
+
+        /* Health Bar */
+        #health-container {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .health-icon {
+            font-size: 24px;
+        }
+
+        .health-bar-bg {
+            width: 200px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .health-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #EF4444, #F97316);
+            border-radius: 5px;
+            transition: width 0.2s;
+        }
+
+        /* Game Over */
+        #game-over {
+            position: absolute;
+            inset: 0;
+            background: rgba(5, 5, 15, 0.95);
+            backdrop-filter: blur(20px);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        #game-over.active {
+            display: flex;
+        }
+
+        .game-over-title {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            margin-bottom: 10px;
+        }
+
+        .final-score {
+            font-size: 72px;
+            font-weight: 900;
+            color: #EF4444;
+            text-shadow: 0 0 50px rgba(239, 68, 68, 0.8);
+        }
+
+        .final-wave {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 10px;
+        }
+
+        .restart-btn {
+            margin-top: 40px;
+            padding: 18px 56px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, #EF4444, #F97316);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: transform 0.2s;
+        }
+
+        .restart-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Start Screen */
+        #start-screen {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(5, 5, 15, 0.95) 0%, rgba(5, 5, 15, 1) 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        #start-screen.hidden {
+            display: none;
+        }
+
+        .game-title {
+            font-size: 52px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 60px rgba(239, 68, 68, 1);
+            margin-bottom: 8px;
+            letter-spacing: 4px;
+        }
+
+        .game-subtitle {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            margin-bottom: 60px;
+        }
+
+        .start-btn {
+            padding: 22px 70px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #05050f;
+            background: #EF4444;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            transition: all 0.3s;
+        }
+
+        .start-btn:hover {
+            background: #F97316;
+        }
+
+        /* Controls */
+        .controls-hint {
+            position: absolute;
+            bottom: 80px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <div id="hud">
+            <div class="hud-score" id="score">0</div>
+            <div class="hud-wave">Wave <span id="wave">1</span></div>
+        </div>
+
+        <div id="health-container">
+            <span class="health-icon">❤️</span>
+            <div class="health-bar-bg">
+                <div class="health-bar" id="health-bar" style="width: 100%"></div>
+            </div>
+        </div>
+
+        <div id="game-over">
+            <div class="game-over-title">Battle Ended</div>
+            <div class="final-score" id="final-score">0</div>
+            <div class="final-wave" id="final-wave">Wave 1</div>
+            <button class="restart-btn" id="restart-btn">Fight Again</button>
+        </div>
+
+        <div id="start-screen">
+            <div class="game-title">NEON KNIGHTS</div>
+            <div class="game-subtitle">Arena Survival</div>
+            <button class="start-btn" id="start-btn">ENTER ARENA</button>
+        </div>
+
+        <div class="controls-hint">Move: WASD / Arrows • Attack: Space / Tap</div>
+    </div>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════════
+        // NEON KNIGHTS - Babylon.js Arena Combat
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        const container = document.getElementById('game-container');
+        const scoreEl = document.getElementById('score');
+        const waveEl = document.getElementById('wave');
+        const healthBar = document.getElementById('health-bar');
+        const gameOverEl = document.getElementById('game-over');
+        const finalScoreEl = document.getElementById('final-score');
+        const finalWaveEl = document.getElementById('final-wave');
+        const restartBtn = document.getElementById('restart-btn');
+        const startScreen = document.getElementById('start-screen');
+        const startBtn = document.getElementById('start-btn');
+
+        let canvas, engine, scene, camera;
+        let player, playerTrail;
+        let enemies = [];
+        let projectiles = [];
+        let score = 0;
+        let wave = 1;
+        let health = 100;
+        let isPlaying = false;
+        let moveDir = { x: 0, z: 0 };
+        let lastAttack = 0;
+        const ARENA_SIZE = 15;
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Babylon.js Setup
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function init() {
+            canvas = document.createElement('canvas');
+            container.insertBefore(canvas, container.firstChild);
+
+            engine = new BABYLON.Engine(canvas, true);
+            createScene();
+
+            engine.runRenderLoop(() => {
+                if (scene) {
+                    if (isPlaying) update();
+                    scene.render();
+                }
+            });
+
+            window.addEventListener('resize', () => engine.resize());
+            window.addEventListener('keydown', onKeyDown);
+            window.addEventListener('keyup', onKeyUp);
+            canvas.addEventListener('pointerdown', attack);
+
+            startBtn.addEventListener('click', startGame);
+            restartBtn.addEventListener('click', restartGame);
+
+            scene.render();
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // Arcadia Bridge Integration
+            // ═══════════════════════════════════════════════════════════════════════════
+            window.addEventListener('message', (e) => {
+                try {
+                    const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+                    if (data.type === 'LIFECYCLE') {
+                        if (data.action === 'LIFECYCLE_PAUSE') pauseGame();
+                        if (data.action === 'LIFECYCLE_RESUME') resumeGame();
+                    if (data.action === 'LIFECYCLE_STOP') pauseGame();
+                    }
+                } catch (err) { }
+            });
+            window.addEventListener('ArcadiaBridge', (e) => {
+                const data = e.detail;
+                if (data.action === 'LIFECYCLE_PAUSE') pauseGame();
+                if (data.action === 'LIFECYCLE_RESUME') resumeGame();
+                    if (data.action === 'LIFECYCLE_STOP') pauseGame();
+            });
+            window.parent?.postMessage({ type: 'READY' }, '*');
+        }
+
+        function createScene() {
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.06, 1);
+
+            // Camera
+            camera = new BABYLON.ArcRotateCamera('camera', 0, Math.PI / 3.5, 25, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, false);
+
+            // Lights
+            const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
+            hemi.intensity = 0.4;
+
+            const point = new BABYLON.PointLight('point', new BABYLON.Vector3(0, 10, 0), scene);
+            point.intensity = 1;
+            point.diffuse = new BABYLON.Color3(1, 0.3, 0.2);
+
+            // Glow
+            const glow = new BABYLON.GlowLayer('glow', scene);
+            glow.intensity = 0.6;
+
+            // Arena floor
+            const floor = BABYLON.MeshBuilder.CreateGround('floor', { width: ARENA_SIZE * 2, height: ARENA_SIZE * 2 }, scene);
+            const floorMat = new BABYLON.StandardMaterial('floorMat', scene);
+            floorMat.diffuseColor = new BABYLON.Color3(0.05, 0.05, 0.08);
+            floorMat.emissiveColor = new BABYLON.Color3(0.02, 0.02, 0.04);
+            floor.material = floorMat;
+
+            // Grid lines
+            for (let i = -ARENA_SIZE; i <= ARENA_SIZE; i += 2) {
+                const lineH = BABYLON.MeshBuilder.CreateLines(`lineH${i}`, { points: [new BABYLON.Vector3(-ARENA_SIZE, 0.01, i), new BABYLON.Vector3(ARENA_SIZE, 0.01, i)] }, scene);
+                lineH.color = new BABYLON.Color3(0.2, 0.1, 0.15);
+                const lineV = BABYLON.MeshBuilder.CreateLines(`lineV${i}`, { points: [new BABYLON.Vector3(i, 0.01, -ARENA_SIZE), new BABYLON.Vector3(i, 0.01, ARENA_SIZE)] }, scene);
+                lineV.color = new BABYLON.Color3(0.2, 0.1, 0.15);
+            }
+
+            // Arena walls (invisible barriers)
+            const wallMat = new BABYLON.StandardMaterial('wallMat', scene);
+            wallMat.diffuseColor = new BABYLON.Color3(0.3, 0.1, 0.2);
+            wallMat.emissiveColor = new BABYLON.Color3(0.2, 0.05, 0.1);
+            wallMat.alpha = 0.3;
+
+            const walls = [
+                [0, 1, -ARENA_SIZE, ARENA_SIZE * 2, 2, 0.5],
+                [0, 1, ARENA_SIZE, ARENA_SIZE * 2, 2, 0.5],
+                [-ARENA_SIZE, 1, 0, 0.5, 2, ARENA_SIZE * 2],
+                [ARENA_SIZE, 1, 0, 0.5, 2, ARENA_SIZE * 2]
+            ];
+            walls.forEach((w, i) => {
+                const wall = BABYLON.MeshBuilder.CreateBox(`wall${i}`, { width: w[3], height: w[4], depth: w[5] }, scene);
+                wall.position = new BABYLON.Vector3(w[0], w[1], w[2]);
+                wall.material = wallMat;
+            });
+
+            // Player
+            player = BABYLON.MeshBuilder.CreateBox('player', { width: 1, height: 1.5, depth: 1 }, scene);
+            const playerMat = new BABYLON.StandardMaterial('playerMat', scene);
+            playerMat.diffuseColor = new BABYLON.Color3(1, 1, 1);
+            playerMat.emissiveColor = new BABYLON.Color3(0.4, 0.2, 0.1);
+            player.material = playerMat;
+            player.position.y = 0.75;
+
+            // Player glow
+            const playerGlow = BABYLON.MeshBuilder.CreateBox('playerGlow', { width: 1.2, height: 1.7, depth: 1.2 }, scene);
+            const glowMat = new BABYLON.StandardMaterial('glowMat', scene);
+            glowMat.diffuseColor = new BABYLON.Color3(1, 0.5, 0.3);
+            glowMat.emissiveColor = new BABYLON.Color3(1, 0.4, 0.2);
+            glowMat.alpha = 0.2;
+            playerGlow.material = glowMat;
+            playerGlow.parent = player;
+        }
+
+        function spawnEnemy() {
+            const geometry = BABYLON.MeshBuilder.CreateSphere('enemy', { diameter: 1 }, scene);
+            const mat = new BABYLON.StandardMaterial('enemyMat', scene);
+            mat.diffuseColor = new BABYLON.Color3(0.2, 0.8, 0.3);
+            mat.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.15);
+            geometry.material = mat;
+
+            // Spawn at edge
+            const side = Math.floor(Math.random() * 4);
+            let x, z;
+            if (side === 0) { x = -ARENA_SIZE + 1; z = (Math.random() - 0.5) * ARENA_SIZE * 1.5; }
+            else if (side === 1) { x = ARENA_SIZE - 1; z = (Math.random() - 0.5) * ARENA_SIZE * 1.5; }
+            else if (side === 2) { x = (Math.random() - 0.5) * ARENA_SIZE * 1.5; z = -ARENA_SIZE + 1; }
+            else { x = (Math.random() - 0.5) * ARENA_SIZE * 1.5; z = ARENA_SIZE - 1; }
+
+            geometry.position = new BABYLON.Vector3(x, 0.5, z);
+            geometry.metadata = { health: 1 + Math.floor(wave / 3) };
+            enemies.push(geometry);
+        }
+
+        function spawnWave() {
+            const count = 3 + wave * 2;
+            for (let i = 0; i < count; i++) {
+                setTimeout(() => spawnEnemy(), i * 300);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Game Loop
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function update() {
+            const speed = 0.15;
+
+            // Player movement
+            player.position.x += moveDir.x * speed;
+            player.position.z += moveDir.z * speed;
+
+            // Clamp to arena
+            player.position.x = Math.max(-ARENA_SIZE + 1, Math.min(ARENA_SIZE - 1, player.position.x));
+            player.position.z = Math.max(-ARENA_SIZE + 1, Math.min(ARENA_SIZE - 1, player.position.z));
+
+            // Camera follow
+            camera.setTarget(player.position);
+
+            // Enemy movement
+            const enemySpeed = 0.03 + wave * 0.005;
+            enemies.forEach(enemy => {
+                const dir = player.position.subtract(enemy.position).normalize();
+                enemy.position.addInPlace(dir.scale(enemySpeed));
+                enemy.rotation.y += 0.05;
+
+                // Collision with player
+                if (BABYLON.Vector3.Distance(player.position, enemy.position) < 1) {
+                    health -= 10;
+                    healthBar.style.width = Math.max(0, health) + '%';
+                    enemy.position = enemy.position.subtract(dir.scale(2)); // Knockback
+                    if (health <= 0) endGame();
+                }
+            });
+
+            // Projectiles
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const proj = projectiles[i];
+                proj.position.addInPlace(proj.metadata.dir.scale(0.5));
+
+                // Hit enemy
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    if (BABYLON.Vector3.Distance(proj.position, enemies[j].position) < 0.8) {
+                        enemies[j].metadata.health--;
+                        if (enemies[j].metadata.health <= 0) {
+                            enemies[j].dispose();
+                            enemies.splice(j, 1);
+                            score += 100 * wave;
+                            scoreEl.textContent = score;
+                        }
+                        proj.dispose();
+                        projectiles.splice(i, 1);
+                        break;
+                    }
+                }
+
+                // Out of bounds
+                if (proj.position.length() > ARENA_SIZE * 2) {
+                    proj.dispose();
+                    projectiles.splice(i, 1);
+                }
+            }
+
+            // Check wave complete
+            if (enemies.length === 0) {
+                wave++;
+                waveEl.textContent = wave;
+                spawnWave();
+            }
+        }
+
+        function attack() {
+            if (!isPlaying) return;
+            const now = Date.now();
+            if (now - lastAttack < 200) return;
+            lastAttack = now;
+
+            // Create projectile
+            const proj = BABYLON.MeshBuilder.CreateSphere('proj', { diameter: 0.3 }, scene);
+            const projMat = new BABYLON.StandardMaterial('projMat', scene);
+            projMat.emissiveColor = new BABYLON.Color3(1, 0.5, 0.2);
+            proj.material = projMat;
+            proj.position = player.position.clone();
+            proj.position.y = 0.75;
+
+            // Direction towards nearest enemy or forward
+            let dir = new BABYLON.Vector3(0, 0, 1);
+            if (enemies.length > 0) {
+                let nearest = enemies[0];
+                let minDist = BABYLON.Vector3.Distance(player.position, nearest.position);
+                enemies.forEach(e => {
+                    const d = BABYLON.Vector3.Distance(player.position, e.position);
+                    if (d < minDist) { minDist = d; nearest = e; }
+                });
+                dir = nearest.position.subtract(player.position).normalize();
+            }
+            proj.metadata = { dir };
+            projectiles.push(proj);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Input
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function onKeyDown(e) {
+            if (!isPlaying) return;
+            if (e.key === 'ArrowLeft' || e.key === 'a') moveDir.x = -1;
+            if (e.key === 'ArrowRight' || e.key === 'd') moveDir.x = 1;
+            if (e.key === 'ArrowUp' || e.key === 'w') moveDir.z = 1;
+            if (e.key === 'ArrowDown' || e.key === 's') moveDir.z = -1;
+            if (e.key === ' ') attack();
+        }
+
+        function onKeyUp(e) {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'ArrowRight' || e.key === 'd') moveDir.x = 0;
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'ArrowDown' || e.key === 's') moveDir.z = 0;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Game State
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            isPlaying = true;
+            score = 0;
+            wave = 1;
+            health = 100;
+            scoreEl.textContent = '0';
+            waveEl.textContent = '1';
+            healthBar.style.width = '100%';
+            player.position = BABYLON.Vector3.Zero();
+            player.position.y = 0.75;
+            spawnWave();
+
+            window.parent?.postMessage({ type: 'GAME_STARTED' }, '*');
+        }
+
+        function endGame() {
+            isPlaying = false;
+            finalScoreEl.textContent = score;
+            finalWaveEl.textContent = `Wave ${wave}`;
+            gameOverEl.classList.add('active');
+
+            window.parent?.postMessage({ type: 'SCORE_UPDATE', score, final: true }, '*');
+        }
+
+        function restartGame() {
+            enemies.forEach(e => e.dispose());
+            projectiles.forEach(p => p.dispose());
+            enemies = [];
+            projectiles = [];
+            gameOverEl.classList.remove('active');
+            startGame();
+        }
+
+        function pauseGame() {
+            isPlaying = false;
+        }
+
+        function resumeGame() {
+            if (startScreen.classList.contains('hidden') && !gameOverEl.classList.contains('active')) {
+                isPlaying = true;
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

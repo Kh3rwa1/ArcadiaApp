@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lava Escape</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #1a0a05;
+            font-family: -apple-system, system-ui, sans-serif;
+            touch-action: none
+        }
+
+        #game {
+            position: absolute;
+            inset: 0
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: env(safe-area-inset-top, 20px) 20px 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10
+        }
+
+        .stat {
+            text-align: center
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.8)
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px
+        }
+
+        #warning {
+            position: absolute;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 18px;
+            font-weight: 900;
+            color: #ef4444;
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
+            opacity: 0;
+            transition: opacity 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 4px
+        }
+
+        #start {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #1a0a05, #2a1005);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100
+        }
+
+        #start.hidden {
+            display: none
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 40px #ef4444;
+            letter-spacing: 4px
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            margin-top: 8px
+        }
+
+        .play-btn {
+            margin-top: 40px;
+            padding: 16px 50px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1a0a05;
+            background: linear-gradient(135deg, #f97316, #ef4444);
+            border: none;
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 4px
+        }
+
+        #gameover {
+            position: absolute;
+            inset: 0;
+            background: rgba(26, 10, 5, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100
+        }
+
+        #gameover.active {
+            display: flex
+        }
+
+        .final {
+            font-size: 64px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #f97316, #ef4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        .retry-btn {
+            margin-top: 30px;
+            padding: 14px 40px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 30px;
+            text-transform: uppercase
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 30px;
+            z-index: 50
+        }
+
+        .ctrl-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: rgba(255, 255, 255, 0.6)
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game"></canvas>
+    <div id="hud">
+        <div class="stat">
+            <div class="stat-value" id="distance">0</div>
+            <div class="stat-label">meters</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="best">0</div>
+            <div class="stat-label">best</div>
+        </div>
+    </div>
+    <div id="warning">⚠️ LAVA RISING</div>
+    <div id="controls">
+        <div class="ctrl-btn" id="left">◀</div>
+        <div class="ctrl-btn" id="jump">⬆️</div>
+        <div class="ctrl-btn" id="right">▶</div>
+    </div>
+    <div id="start">
+        <div class="title">LAVA</div>
+        <div class="subtitle">Endless Climber</div>
+        <button class="play-btn" id="play">CLIMB</button>
+    </div>
+    <div id="gameover">
+        <div class="final" id="final">0</div>
+        <div style="color:rgba(255,255,255,0.5);margin-top:10px">METERS CLIMBED</div>
+        <button class="retry-btn" id="retry">TRY AGAIN</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
+        const distanceEl = document.getElementById('distance'), bestEl = document.getElementById('best'), warningEl = document.getElementById('warning');
+        const startEl = document.getElementById('start'), gameoverEl = document.getElementById('gameover'), finalEl = document.getElementById('final');
+
+        let W, H, playing = false, distance = 0, best = 0, lavaY = 0;
+        let player = { x: 0, y: 0, vx: 0, vy: 0, onGround: false };
+        let platforms = [], embers = [];
+        let moveDir = 0;
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight }
+        window.addEventListener('resize', resize); resize();
+
+        function generatePlatforms() {
+            platforms = [];
+            const startY = H - 100;
+            platforms.push({ x: W / 2 - 60, y: startY, w: 120, h: 20 });
+            for (let y = startY - 80; y > -5000; y -= 60 + Math.random() * 40) {
+                platforms.push({
+                    x: Math.random() * (W - 120) + 20,
+                    y: y, w: 60 + Math.random() * 60, h: 20
+                });
+            }
+        }
+
+        function update() {
+            if (!playing) return;
+
+            // Movement
+            player.vx = moveDir * 6;
+            player.vy += 0.6;
+            player.x += player.vx;
+            player.y += player.vy;
+
+            // Wrap
+            if (player.x < -20) player.x = W + 20;
+            if (player.x > W + 20) player.x = -20;
+
+            // Platform collision
+            player.onGround = false;
+            platforms.forEach(p => {
+                if (player.vy > 0 && player.y > p.y - 25 && player.y < p.y + 10 && player.x > p.x - 15 && player.x < p.x + p.w + 15) {
+                    player.y = p.y - 20;
+                    player.vy = 0;
+                    player.onGround = true;
+                }
+            });
+
+            // Camera follow
+            const targetY = H * 0.6;
+            if (player.y < targetY) {
+                const diff = targetY - player.y;
+                player.y += diff;
+                platforms.forEach(p => p.y += diff);
+                lavaY += diff;
+                distance += diff * 0.1;
+                distanceEl.textContent = Math.floor(distance);
+            }
+
+            // Lava rises
+            lavaY += 0.5;
+
+            // Warning
+            const danger = player.y - lavaY < 200;
+            warningEl.style.opacity = danger ? '1' : '0';
+
+            // Death
+            if (player.y > lavaY || player.y > H + 50) endGame();
+
+            // Embers
+            if (Math.random() < 0.1) embers.push({ x: Math.random() * W, y: lavaY, vy: -2 - Math.random() * 2, life: 1 });
+            embers.forEach(e => { e.y += e.vy; e.life -= 0.01 });
+            embers = embers.filter(e => e.life > 0);
+        }
+
+        function draw() {
+            ctx.fillStyle = '#1a0a05'; ctx.fillRect(0, 0, W, H);
+
+            // Platforms
+            platforms.forEach(p => {
+                if (p.y < -20 || p.y > H + 50) return;
+                ctx.fillStyle = '#3a2a20';
+                ctx.beginPath(); ctx.roundRect(p.x, p.y, p.w, p.h, 6); ctx.fill();
+                ctx.strokeStyle = '#5a4a40'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.roundRect(p.x, p.y, p.w, p.h, 6); ctx.stroke();
+            });
+
+            // Player
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(player.x, player.y, 20, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#f97316';
+            ctx.beginPath(); ctx.arc(player.x, player.y, 12, 0, Math.PI * 2); ctx.fill();
+
+            // Embers
+            embers.forEach(e => {
+                ctx.globalAlpha = e.life;
+                ctx.fillStyle = '#f97316';
+                ctx.beginPath(); ctx.arc(e.x, e.y, 3, 0, Math.PI * 2); ctx.fill();
+            }); ctx.globalAlpha = 1;
+
+            // Lava
+            const gradient = ctx.createLinearGradient(0, lavaY, 0, H);
+            gradient.addColorStop(0, '#ef4444');
+            gradient.addColorStop(0.3, '#f97316');
+            gradient.addColorStop(1, '#dc2626');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, lavaY, W, H - lavaY + 100);
+
+            // Lava glow
+            ctx.fillStyle = `rgba(239,68,68,${0.3 + Math.sin(Date.now() / 200) * 0.1})`;
+            ctx.fillRect(0, lavaY - 20, W, 30);
+        }
+
+        function jump() {
+            if (player.onGround) { player.vy = -14 }
+        }
+
+        function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop) }
+
+        function startGame() {
+            playing = true; distance = 0; lavaY = H + 200;
+            player.x = W / 2; player.y = H - 150; player.vx = 0; player.vy = 0;
+            generatePlatforms();
+            startEl.classList.add('hidden'); gameoverEl.classList.remove('active');
+            distanceEl.textContent = '0';
+            window.parent?.postMessage({ type: 'GAME_STARTED' }, '*');
+        }
+        function endGame() {
+            playing = false;
+            if (distance > best) { best = Math.floor(distance); bestEl.textContent = best }
+            finalEl.textContent = Math.floor(distance);
+            gameoverEl.classList.add('active');
+            window.parent?.postMessage({ type: 'SCORE_UPDATE', score: Math.floor(distance), final: true }, '*');
+        }
+
+        document.getElementById('left').addEventListener('touchstart', e => { e.preventDefault(); moveDir = -1 });
+        document.getElementById('right').addEventListener('touchstart', e => { e.preventDefault(); moveDir = 1 });
+        document.getElementById('jump').addEventListener('touchstart', e => { e.preventDefault(); jump() });
+        document.addEventListener('touchend', e => { if (e.target.id !== 'jump') moveDir = 0 });
+        document.getElementById('play').addEventListener('click', startGame);
+        document.getElementById('retry').addEventListener('click', startGame);
+        document.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') moveDir = -1; if (e.key === 'ArrowRight') moveDir = 1; if (e.key === ' ' || e.key === 'ArrowUp') jump() });
+        document.addEventListener('keyup', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') moveDir = 0 });
+
+        window.addEventListener('message', e => { try { const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; if (d.action === 'LIFECYCLE_PAUSE') playing = false; if (d.action === 'LIFECYCLE_RESUME' && startEl.classList.contains('hidden')) playing = true } catch (err) { } });
+        window.parent?.postMessage({ type: 'READY' }, '*');
+
+        gameLoop();
+    </script>
+</body>
+
+</html>

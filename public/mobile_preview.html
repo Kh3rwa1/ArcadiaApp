@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcadia — Immersive Discovery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+    <style>
+        :root {
+            --void: #000000;
+            --obsidian: #040405;
+            --slate: #0D0D10;
+            --accent: #6366f1;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --border-dim: rgba(255, 255, 255, 0.08);
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-bright: rgba(255, 255, 255, 0.1);
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background: var(--void);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: var(--text-primary);
+        }
+
+        .feed-container {
+            height: 100%;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            scrollbar-width: none;
+        }
+
+        .feed-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .game-card {
+            height: 100vh;
+            width: 100vw;
+            scroll-snap-align: start;
+            position: relative;
+            background: var(--void);
+        }
+
+        .webview-mock {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: var(--void);
+        }
+
+        .overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 40px 24px 120px;
+            background: linear-gradient(0deg, var(--void) 0%, rgba(0, 0, 0, 0.4) 30%, transparent 60%);
+        }
+
+        .action-rail {
+            position: absolute;
+            right: 16px;
+            bottom: 140px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            pointer-events: auto;
+            align-items: center;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-primary);
+            transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+            cursor: pointer;
+        }
+
+        .icon-circle {
+            width: 52px;
+            height: 52px;
+            border-radius: 26px;
+            background: var(--glass-bright);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-dim);
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover .icon-circle {
+            background: var(--accent);
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .action-btn:active {
+            transform: scale(0.9);
+        }
+
+        .action-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-info {
+            pointer-events: auto;
+            max-width: 80%;
+        }
+
+        .game-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -0.03em;
+            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-creator {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .verified-badge {
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-tabs {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            z-index: 100;
+        }
+
+        .tab {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .tab.active {
+            color: var(--text-primary);
+            position: relative;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 3px;
+            background: var(--text-primary);
+            border-radius: 2px;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 84px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.95), transparent);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding-bottom: 24px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .nav-item.active {
+            color: var(--text-primary);
+            transform: translateY(-4px);
+        }
+
+        .nav-item.active i {
+            color: var(--accent);
+            filter: drop-shadow(0 0 8px var(--accent));
+        }
+
+        /* Views management */
+        .view {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transform: scale(0.98);
+            pointer-events: none;
+            transition: all 0.5s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        .view.active {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+
+        /* Library View */
+        .library-view {
+            padding: 80px 20px 100px;
+            overflow-y: auto;
+            background: var(--obsidian);
+        }
+
+        .category-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .category-card {
+            height: 120px;
+            border-radius: 20px;
+            background: var(--glass);
+            border: 1px solid var(--border-dim);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.3s;
+        }
+
+        .category-card:hover {
+            border-color: var(--accent);
+            background: var(--glass-bright);
+        }
+
+        .category-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Profile View */
+        .profile-view {
+            padding: 80px 20px 100px;
+            overflow-y: auto;
+            background: var(--obsidian);
+        }
+
+        .profile-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, var(--accent), #8b5cf6);
+            border: 4px solid var(--border-dim);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            font-weight: 800;
+        }
+
+        .profile-stats {
+            display: flex;
+            gap: 40px;
+            margin-top: 24px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-val {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .achievements-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 32px;
+            width: 100%;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .achievement-pill {
+            padding: 10px 20px;
+            background: var(--glass);
+            border: 1px solid var(--border-dim);
+            border-radius: 50px;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="home-view" class="view active">
+        <div class="header-tabs">
+            <div class="tab">Following</div>
+            <div class="tab active">For You</div>
+        </div>
+
+        <div class="feed-container" id="feed">
+            <!-- Game 1: Neon Clicker -->
+            <div class="game-card" data-game-id="1">
+                <iframe class="webview-mock" src="/games/neon-uuid/v1/index.html"></iframe>
+                <div class="overlay">
+                    <div class="game-info">
+                        <h1 class="game-title">Neon Clicker</h1>
+                        <div class="game-creator">
+                            <span>Arcadia Labs</span>
+                            <div class="verified-badge"><i data-lucide="check" style="width: 10px; color: black;"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="action-rail">
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="heart"></i></div>
+                            <span class="action-label">1.2k</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="share-2"></i></div>
+                            <span class="action-label">Share</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="rotate-ccw"></i></div>
+                            <span class="action-label">Reset</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game 2: Gravity Jump -->
+            <div class="game-card" data-game-id="2">
+                <iframe class="webview-mock" src="/games/gravity-jump/v1/index.html"></iframe>
+                <div class="overlay">
+                    <div class="game-info">
+                        <h1 class="game-title">Gravity Jump</h1>
+                        <div class="game-creator">
+                            <span>Arcadia Labs</span>
+                            <div class="verified-badge"><i data-lucide="check" style="width: 10px; color: black;"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="action-rail">
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="heart"></i></div>
+                            <span class="action-label">2.4k</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="share-2"></i></div>
+                            <span class="action-label">Share</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="rotate-ccw"></i></div>
+                            <span class="action-label">Reset</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game 3: Color Match -->
+            <div class="game-card" data-game-id="3">
+                <iframe class="webview-mock" src="/games/color-match/v1/index.html"></iframe>
+                <div class="overlay">
+                    <div class="game-info">
+                        <h1 class="game-title">Color Match</h1>
+                        <div class="game-creator">
+                            <span>Arcadia Labs</span>
+                            <div class="verified-badge"><i data-lucide="check" style="width: 10px; color: black;"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="action-rail">
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="heart"></i></div>
+                            <span class="action-label">890</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="share-2"></i></div>
+                            <span class="action-label">Share</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="rotate-ccw"></i></div>
+                            <span class="action-label">Reset</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game 4: Memory Flip -->
+            <div class="game-card" data-game-id="4">
+                <iframe class="webview-mock" src="/games/memory-flip/v1/index.html"></iframe>
+                <div class="overlay">
+                    <div class="game-info">
+                        <h1 class="game-title">Memory Flip</h1>
+                        <div class="game-creator">
+                            <span>Arcadia Labs</span>
+                            <div class="verified-badge"><i data-lucide="check" style="width: 10px; color: black;"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="action-rail">
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="heart"></i></div>
+                            <span class="action-label">1.8k</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="share-2"></i></div>
+                            <span class="action-label">Share</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="rotate-ccw"></i></div>
+                            <span class="action-label">Reset</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game 5: Dot Hunter -->
+            <div class="game-card" data-game-id="5">
+                <iframe class="webview-mock" src="/games/dot-hunter/v1/index.html"></iframe>
+                <div class="overlay">
+                    <div class="game-info">
+                        <h1 class="game-title">Dot Hunter</h1>
+                        <div class="game-creator">
+                            <span>Arcadia Labs</span>
+                            <div class="verified-badge"><i data-lucide="check" style="width: 10px; color: black;"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="action-rail">
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="heart"></i></div>
+                            <span class="action-label">3.2k</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="share-2"></i></div>
+                            <span class="action-label">Share</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="rotate-ccw"></i></div>
+                            <span class="action-label">Reset</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game 6: Crystal Caverns -->
+            <div class="game-card" data-game-id="6">
+                <iframe class="webview-mock" src="/games/crystal-caverns/v1/index.html"></iframe>
+                <div class="overlay">
+                    <div class="game-info">
+                        <h1 class="game-title">Crystal Caverns</h1>
+                        <div class="game-creator">
+                            <span>Arcadia Labs</span>
+                            <div class="verified-badge"><i data-lucide="check" style="width: 10px; color: black;"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="action-rail">
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="heart"></i></div>
+                            <span class="action-label">1.5k</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="share-2"></i></div>
+                            <span class="action-label">Share</span>
+                        </div>
+                        <div class="action-btn">
+                            <div class="icon-circle"><i data-lucide="rotate-ccw"></i></div>
+                            <span class="action-label">Reset</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Library View -->
+    <div id="library-view" class="view library-view">
+        <h1 class="text-3xl font-bold mb-2">Library</h1>
+        <p class="text-gray-400">Discover experiences by category</p>
+
+        <div class="category-grid">
+            <div class="category-card">
+                <div class="category-icon"><i data-lucide="zap"></i></div>
+                <span class="font-bold">Hyper-Casual</span>
+            </div>
+            <div class="category-card">
+                <div class="category-icon" style="background: #10B981;"><i data-lucide="wind"></i></div>
+                <span class="font-bold">Zen & Calm</span>
+            </div>
+            <div class="category-card">
+                <div class="category-icon" style="background: #F59E0B;"><i data-lucide="puzzle"></i></div>
+                <span class="font-bold">Logic</span>
+            </div>
+            <div class="category-card">
+                <div class="category-icon" style="background: #EF4444;"><i data-lucide="swords"></i></div>
+                <span class="font-bold">Competitive</span>
+            </div>
+            <div class="category-card">
+                <div class="category-icon" style="background: #8B5CF6;"><i data-lucide="palette"></i></div>
+                <span class="font-bold">Creative</span>
+            </div>
+            <div class="category-card">
+                <div class="category-icon" style="background: #3B82F6;"><i data-lucide="globe"></i></div>
+                <span class="font-bold">Social</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile View -->
+    <div id="profile-view" class="view profile-view">
+        <div class="profile-header">
+            <div class="profile-avatar">JD</div>
+            <h1 class="text-2xl font-bold">John Doe</h1>
+            <p class="text-gray-400">@johndoe • Arcadia Certified Member</p>
+
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <span class="stat-val">2.4k</span>
+                    <span class="stat-label">Points</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-val">12</span>
+                    <span class="stat-label">Played</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-val">840</span>
+                    <span class="stat-label">Followers</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="achievements-row">
+            <div class="achievement-pill"><i data-lucide="award" class="text-yellow-500"></i> Early Adopter</div>
+            <div class="achievement-pill"><i data-lucide="flame" class="text-orange-500"></i> 7 Day Streak</div>
+            <div class="achievement-pill"><i data-lucide="shield" class="text-blue-500"></i> Bug Hunter</div>
+        </div>
+
+        <h2 class="text-xl font-bold mt-10 mb-4">My Activity</h2>
+        <div class="grid grid-cols-3 gap-2">
+            <div class="aspect-square bg-white/5 rounded-lg overflow-hidden border border-white/5">
+                <img src="https://images.unsplash.com/photo-1614850523296-d8c1af93d400?w=200&h=200&fit=crop"
+                    class="w-full h-full object-cover opacity-50">
+            </div>
+            <div class="aspect-square bg-white/5 rounded-lg overflow-hidden border border-white/5">
+                <img src="https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=200&h=200&fit=crop"
+                    class="w-full h-full object-cover opacity-50">
+            </div>
+            <div class="aspect-square bg-white/5 rounded-lg overflow-hidden border border-white/5">
+                <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?w=200&h=200&fit=crop"
+                    class="w-full h-full object-cover opacity-50">
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchView('home', this)">
+            <i data-lucide="home"></i>
+            <span class="text-[10px] font-bold">Home</span>
+        </div>
+        <div class="nav-item" onclick="switchView('library', this)">
+            <i data-lucide="layout-grid"></i>
+            <span class="text-[10px] font-bold">Library</span>
+        </div>
+        <div class="nav-item" onclick="switchView('profile', this)">
+            <i data-lucide="user"></i>
+            <span class="text-[10px] font-bold">Profile</span>
+        </div>
+    </nav>
+
+    <script>
+        lucide.createIcons();
+
+        function switchView(viewId, element) {
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            element.classList.add('active');
+
+            // Switch views
+            document.querySelectorAll('.view').forEach(view => {
+                view.classList.remove('active');
+            });
+            document.getElementById(viewId + '-view').classList.add('active');
+
+            // Add haptic-like scale effect to icon
+            const icon = element.querySelector('i');
+            icon.style.transform = 'scale(1.2)';
+            setTimeout(() => icon.style.transform = 'scale(1)', 200);
+        }
+
+        const feed = document.getElementById('feed');
+        feed.addEventListener('scroll', () => {
+            // Haptic logic
+        });
+    </script>
+</body>
+
+</html>
