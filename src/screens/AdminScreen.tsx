@@ -13,9 +13,25 @@ export default function AdminScreen({ onBack }: { onBack: () => void }) {
     const [games, setGames] = useState<AdminGame[]>([]);
     const [refreshing, setRefreshing] = useState(false);
 
+    // Config state
+    const [showConfig, setShowConfig] = useState(false);
+    const [customUrl, setCustomUrl] = useState('');
+
     useEffect(() => {
         checkAuth();
+        loadConfig();
     }, []);
+
+    const loadConfig = async () => {
+        const url = await adminService.getApiUrl();
+        setCustomUrl(url);
+    };
+
+    const saveConfig = async () => {
+        await adminService.setApiUrl(customUrl);
+        setShowConfig(false);
+        Alert.alert('Configuration Saved', 'Backend connection URL updated.');
+    };
 
     const checkAuth = async () => {
         const hasKey = await adminService.hasKey();
@@ -49,7 +65,7 @@ export default function AdminScreen({ onBack }: { onBack: () => void }) {
         if (success) {
             loadGames();
         } else {
-            Alert.alert('Error', 'Invalid Admin Key');
+            Alert.alert('Access Denied', 'Invalid Access Code or Connection Failed.\nCheck your Backend URL in settings.');
             setIsLoading(false);
         }
     };
@@ -119,6 +135,37 @@ export default function AdminScreen({ onBack }: { onBack: () => void }) {
             <TouchableOpacity style={styles.cancelAccess} onPress={onBack}>
                 <Text style={styles.cancelAccessText}>Cancel Authentication</Text>
             </TouchableOpacity>
+
+            {/* Connection Settings Toggle */}
+            <TouchableOpacity
+                style={styles.configToggle}
+                onPress={() => setShowConfig(!showConfig)}
+            >
+                <Ionicons name="settings-outline" size={20} color={colors.textTertiary} />
+                <Text style={styles.configToggleText}>{showConfig ? 'Hide Connection' : 'Server Connection'}</Text>
+            </TouchableOpacity>
+
+            {/* Config Panel */}
+            {showConfig && (
+                <View style={styles.configPanel}>
+                    <Text style={styles.configLabel}>Backend API URL:</Text>
+                    <TextInput
+                        style={styles.configInput}
+                        placeholder="e.g. https://api.myapp.com"
+                        placeholderTextColor={colors.textDisabled}
+                        value={customUrl}
+                        onChangeText={setCustomUrl}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                    />
+                    <TouchableOpacity style={styles.saveConfigBtn} onPress={saveConfig}>
+                        <Text style={styles.saveConfigText}>Save Connection</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.configHelp}>
+                        Required for Vercel deployments. Use a secured https:// URL (e.g. ngrok).
+                    </Text>
+                </View>
+            )}
         </View>
     );
 
@@ -295,6 +342,59 @@ const styles = StyleSheet.create({
     cancelAccessText: {
         ...typography.bodyMedium,
         color: colors.textTertiary,
+    },
+    configToggle: {
+        marginTop: spacing.xxl,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        padding: spacing.sm,
+    },
+    configToggleText: {
+        color: colors.textTertiary,
+        fontSize: 12,
+    },
+    configPanel: {
+        width: '100%',
+        maxWidth: 320,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        borderRadius: radii.md,
+        padding: spacing.md,
+        marginTop: spacing.sm,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+    },
+    configLabel: {
+        color: colors.textSecondary,
+        fontSize: 12,
+        marginBottom: 4,
+    },
+    configInput: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        color: colors.textPrimary,
+        padding: 8,
+        borderRadius: 4,
+        fontSize: 12,
+        marginBottom: spacing.md,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    saveConfigBtn: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        padding: 8,
+        borderRadius: 4,
+        alignItems: 'center',
+    },
+    saveConfigText: {
+        color: colors.textPrimary,
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    configHelp: {
+        color: colors.textTertiary,
+        fontSize: 10,
+        marginTop: spacing.sm,
+        textAlign: 'center',
     },
     header: {
         flexDirection: 'row',
