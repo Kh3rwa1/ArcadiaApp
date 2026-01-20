@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Animated, TouchableOpacity, Dimensions, Easing, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, typography, spacing, radii, shadows, motion, touchTargets } from '../theme';
@@ -119,9 +120,11 @@ const MenuItem = memo(({ icon, text, onPress, isLast }: { icon: any; text: strin
     );
 });
 
-interface Props { }
+interface Props {
+    onAdminPress?: () => void;
+}
 
-function ProfileScreen({ }: Props) {
+function ProfileScreen({ onAdminPress }: Props) {
     const { width: SCREEN_WIDTH } = useWindowDimensions();
     const isSmallDevice = useIsSmallDevice();
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -137,6 +140,13 @@ function ProfileScreen({ }: Props) {
     useEffect(() => {
         loadProfile();
     }, [loadProfile]);
+
+    const handleSecretAdminAccess = () => {
+        if (onAdminPress) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            onAdminPress();
+        }
+    };
 
     useEffect(() => {
         if (profile) {
@@ -188,9 +198,11 @@ function ProfileScreen({ }: Props) {
                                 <View style={styles.onlineBadge} />
                             </View>
 
-                            <Text style={[typography.displaySmall, { color: colors.textPrimary, marginTop: spacing.md }, isSmallDevice && { fontSize: 24 }]}>
-                                {profile.username}
-                            </Text>
+                            <TouchableOpacity activeOpacity={1} onLongPress={handleSecretAdminAccess} delayLongPress={2000}>
+                                <Text style={[typography.displaySmall, { color: colors.textPrimary, marginTop: spacing.md }, isSmallDevice && { fontSize: 24 }]}>
+                                    {profile.username}
+                                </Text>
+                            </TouchableOpacity>
                             <Text style={[typography.bodyLarge, { color: colors.textSecondary }, isSmallDevice && { fontSize: 16 }]}>
                                 Level {profile.level} Operative @ARCADIA
                             </Text>

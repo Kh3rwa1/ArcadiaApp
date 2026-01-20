@@ -14,7 +14,7 @@ export default function App() {
   // Simple URL routing
   const url = Linking.useURL();
   const path = url ? Linking.parse(url).path : null;
-  const isAdminRoute = path === 'admin';
+  const isAdminRoute = path?.includes('admin') || false;
 
   return (
     <SafeAreaProvider>

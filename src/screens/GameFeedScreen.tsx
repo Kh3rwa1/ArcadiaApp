@@ -530,7 +530,7 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
         switch (activeTab) {
             case 'home': return renderFeed();
             case 'library': return <LibraryScreen onSelectCategory={navigateToCategory} onLaunchGame={launchGame} />;
-            case 'profile': return <ProfileScreen />;
+            case 'profile': return <ProfileScreen onAdminPress={() => setActiveTab('admin')} />;
             case 'admin': return <AdminScreen onBack={() => setActiveTab('profile')} />;
             default: return renderFeed();
         }
