@@ -1,0 +1,22 @@
+{
+    "build": {
+        "preview": {
+            "android": {
+                "buildType": "apk"
+            }
+        },
+        "production": {
+            "android": {
+                "buildType": "app-bundle"
+            }
+        }
+    },
+    "submit": {
+        "production": {
+            "android": {
+                "serviceAccountKeyPath": "./play-store-key.json",
+                "track": "internal"
+            }
+        }
+    }
+}

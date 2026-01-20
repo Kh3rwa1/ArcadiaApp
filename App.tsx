@@ -1,20 +1,38 @@
+import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import SplashScreen from './src/screens/SplashScreen';
+import GameFeedScreen from './src/screens/GameFeedScreen';
 
+// Pure immersive experience - no navigation framework needed
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <View style={styles.container}>
+        <StatusBar style="light" hidden />
+        {showSplash ? (
+          <SplashScreen onComplete={() => setShowSplash(false)} />
+        ) : (
+          <GameFeedScreen />
+        )}
+      </View>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#000',
+    // Fix white strip on web - ensure full viewport
+    ...(Platform.OS === 'web' && {
+      width: '100vw' as any,
+      height: '100vh' as any,
+      maxWidth: '100%',
+      overflow: 'hidden',
+    }),
   },
 });
