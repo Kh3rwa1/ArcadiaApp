@@ -715,7 +715,8 @@
             gameOverEl.classList.add('active');
             screenShake = 10;
 
-            window.parent?.postMessage({ type: 'SCORE_UPDATE', score: finalScore, final: true }, '*');
+            window.parent?.postMessage({ action: 'SCORE_UPDATE', payload: { score: finalScore, final: true } }, '*');
+            window.parent?.postMessage({ action: 'GAME_OVER', payload: { score: finalScore } }, '*');
         }
 
         function restartGame() {

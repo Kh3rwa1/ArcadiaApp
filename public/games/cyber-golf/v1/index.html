@@ -312,7 +312,7 @@
                     if (data.type === 'LIFECYCLE') {
                         if (data.action === 'LIFECYCLE_PAUSE') pauseGame();
                         if (data.action === 'LIFECYCLE_RESUME') resumeGame();
-                    if (data.action === 'LIFECYCLE_STOP') pauseGame();
+                        if (data.action === 'LIFECYCLE_STOP') pauseGame();
                     }
                 } catch (err) { }
             });
@@ -320,7 +320,7 @@
                 const data = e.detail;
                 if (data.action === 'LIFECYCLE_PAUSE') pauseGame();
                 if (data.action === 'LIFECYCLE_RESUME') resumeGame();
-                    if (data.action === 'LIFECYCLE_STOP') pauseGame();
+                if (data.action === 'LIFECYCLE_STOP') pauseGame();
             });
             window.parent?.postMessage({ type: 'READY' }, '*');
         }
@@ -536,8 +536,9 @@
             winScreen.classList.remove('active');
 
             if (currentHole >= 3) {
-                // End game
+                // End game - notify parent to unlock scroll
                 startScreen.classList.remove('hidden');
+                window.parent?.postMessage({ action: 'GAME_COMPLETE', payload: { score: strokes } }, '*');
                 return;
             }
 

@@ -337,7 +337,7 @@
         function gameLoop() { draw(); requestAnimationFrame(gameLoop) }
 
         function startGame() { playing = true; level = 1; levelEl.textContent = '1'; generateLevel(); startEl.classList.add('hidden'); winEl.classList.remove('active'); window.parent?.postMessage({ type: 'GAME_STARTED' }, '*') }
-        function nextLevel() { winEl.classList.remove('active'); if (level >= 3) { startEl.classList.remove('hidden'); return } level++; levelEl.textContent = level; generateLevel(); playing = true }
+        function nextLevel() { winEl.classList.remove('active'); if (level >= 3) { startEl.classList.remove('hidden'); window.parent?.postMessage({ action: 'GAME_COMPLETE', payload: { score: level * 100 } }, '*'); return } level++; levelEl.textContent = level; generateLevel(); playing = true }
 
         canvas.addEventListener('click', e => {
             const rect = canvas.getBoundingClientRect();
