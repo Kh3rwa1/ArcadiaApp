@@ -1,0 +1,428 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`GameCard shows preloader when loading (simulated) 1`] = `
+<View
+  collapsable={false}
+  style={
+    {
+      "backgroundColor": "#000000",
+      "flex": 1,
+      "height": "100%",
+      "opacity": 0,
+      "overflow": "hidden",
+      "transform": [
+        {
+          "scale": 0.96,
+        },
+        {
+          "translateY": 30,
+        },
+      ],
+      "width": "100%",
+    }
+  }
+>
+  <View
+    collapsable={false}
+    style={
+      {
+        "alignItems": "center",
+        "backgroundColor": "#000000",
+        "bottom": 0,
+        "justifyContent": "center",
+        "left": 0,
+        "opacity": 0,
+        "position": "absolute",
+        "right": 0,
+        "top": 0,
+        "zIndex": 10,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "flex": 1,
+          "width": "100%",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "rgba(255, 255, 255, 0.03)",
+              "overflow": "hidden",
+            },
+            {
+              "borderRadius": 0,
+              "height": "40%",
+              "width": "100%",
+            },
+            {
+              "width": "100%",
+            },
+          ]
+        }
+      >
+        <View
+          collapsable={false}
+          style={
+            {
+              "bottom": 0,
+              "left": 0,
+              "position": "absolute",
+              "right": 0,
+              "top": 0,
+              "transform": [
+                {
+                  "translateX": -750,
+                },
+              ],
+            }
+          }
+        />
+      </View>
+      <View
+        style={
+          {
+            "padding": 32,
+          }
+        }
+      >
+        <View
+          style={
+            [
+              {
+                "backgroundColor": "rgba(255, 255, 255, 0.03)",
+                "overflow": "hidden",
+              },
+              {
+                "borderRadius": 12,
+                "height": 32,
+                "width": "60%",
+              },
+              {
+                "marginBottom": 16,
+              },
+            ]
+          }
+        >
+          <View
+            collapsable={false}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+                "transform": [
+                  {
+                    "translateX": -750,
+                  },
+                ],
+              }
+            }
+          />
+        </View>
+        <View
+          style={
+            [
+              {
+                "backgroundColor": "rgba(255, 255, 255, 0.03)",
+                "overflow": "hidden",
+              },
+              {
+                "borderRadius": 8,
+                "height": 16,
+                "width": "90%",
+              },
+              {
+                "marginBottom": 4,
+              },
+            ]
+          }
+        >
+          <View
+            collapsable={false}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+                "transform": [
+                  {
+                    "translateX": -750,
+                  },
+                ],
+              }
+            }
+          />
+        </View>
+        <View
+          style={
+            [
+              {
+                "backgroundColor": "rgba(255, 255, 255, 0.03)",
+                "overflow": "hidden",
+              },
+              {
+                "borderRadius": 8,
+                "height": 16,
+                "width": "80%",
+              },
+              {
+                "marginBottom": 32,
+              },
+            ]
+          }
+        >
+          <View
+            collapsable={false}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+                "transform": [
+                  {
+                    "translateX": -750,
+                  },
+                ],
+              }
+            }
+          />
+        </View>
+        <View
+          style={
+            {
+              "flexDirection": "row",
+              "gap": 16,
+            }
+          }
+        >
+          <View
+            style={
+              [
+                {
+                  "backgroundColor": "rgba(255, 255, 255, 0.03)",
+                  "overflow": "hidden",
+                },
+                {
+                  "borderRadius": 12,
+                  "height": 40,
+                  "width": 80,
+                },
+                undefined,
+              ]
+            }
+          >
+            <View
+              collapsable={false}
+              style={
+                {
+                  "bottom": 0,
+                  "left": 0,
+                  "position": "absolute",
+                  "right": 0,
+                  "top": 0,
+                  "transform": [
+                    {
+                      "translateX": -750,
+                    },
+                  ],
+                }
+              }
+            />
+          </View>
+          <View
+            style={
+              [
+                {
+                  "backgroundColor": "rgba(255, 255, 255, 0.03)",
+                  "overflow": "hidden",
+                },
+                {
+                  "borderRadius": 12,
+                  "height": 40,
+                  "width": 80,
+                },
+                undefined,
+              ]
+            }
+          >
+            <View
+              collapsable={false}
+              style={
+                {
+                  "bottom": 0,
+                  "left": 0,
+                  "position": "absolute",
+                  "right": 0,
+                  "top": 0,
+                  "transform": [
+                    {
+                      "translateX": -750,
+                    },
+                  ],
+                }
+              }
+            />
+          </View>
+          <View
+            style={
+              [
+                {
+                  "backgroundColor": "rgba(255, 255, 255, 0.03)",
+                  "overflow": "hidden",
+                },
+                {
+                  "borderRadius": 12,
+                  "height": 40,
+                  "width": 80,
+                },
+                undefined,
+              ]
+            }
+          >
+            <View
+              collapsable={false}
+              style={
+                {
+                  "bottom": 0,
+                  "left": 0,
+                  "position": "absolute",
+                  "right": 0,
+                  "top": 0,
+                  "transform": [
+                    {
+                      "translateX": -750,
+                    },
+                  ],
+                }
+              }
+            />
+          </View>
+        </View>
+      </View>
+    </View>
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "justifyContent": "center",
+          "position": "absolute",
+        }
+      }
+    >
+      <ActivityIndicator
+        color="#6366f1"
+        size="large"
+      />
+      <Text
+        style={
+          {
+            "color": "#FFFFFF",
+            "fontSize": 18,
+            "fontWeight": "900",
+            "letterSpacing": 2,
+            "lineHeight": 34,
+            "marginTop": 16,
+          }
+        }
+      >
+        TEST GAME
+      </Text>
+    </View>
+  </View>
+  <WebView
+    allowsFullscreenVideo={true}
+    allowsInlineMediaPlayback={true}
+    androidLayerType="hardware"
+    domStorageEnabled={true}
+    injectedJavaScript="
+                        window.ARCADIA_CONFIG = {};
+                        true;
+                    "
+    javaScriptEnabled={true}
+    mediaPlaybackRequiresUserAction={false}
+    onContentProcessDidTerminate={[Function]}
+    onError={[Function]}
+    onLoadEnd={[Function]}
+    onMessage={[Function]}
+    originWhitelist={
+      [
+        "*",
+      ]
+    }
+    ref={
+      {
+        "current": null,
+      }
+    }
+    renderToHardwareTextureAndroid={true}
+    scrollEnabled={false}
+    source={
+      {
+        "uri": "http://test.com",
+      }
+    }
+    startInLoadingState={false}
+    style={
+      [
+        {
+          "backgroundColor": "transparent",
+          "flex": 1,
+        },
+        {
+          "opacity": 0,
+          "position": "absolute",
+        },
+      ]
+    }
+  />
+  <View
+    collapsable={false}
+    style={
+      {
+        "alignSelf": "center",
+        "opacity": 0,
+        "position": "absolute",
+        "top": 60,
+        "transform": [
+          {
+            "translateY": 20,
+          },
+          {
+            "scale": 0.8,
+          },
+        ],
+        "zIndex": 100,
+      }
+    }
+  >
+    <Ionicons
+      color="#818cf8"
+      name="flash"
+      size={12}
+    />
+    <Text
+      style={
+        {
+          "color": "#FFFFFF",
+          "fontSize": 10,
+          "fontWeight": "700",
+          "letterSpacing": 0.5,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    />
+  </View>
+</View>
+`;
