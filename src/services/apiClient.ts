@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const STORAGE_KEY_URL = 'arcadia_api_url';
+const STORAGE_KEY_URL = 'durra_api_url';
 const LOCAL_IP_FALLBACK = '192.168.0.101'; // Fallback for local dev
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'checking' | 'unknown';

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arcadia Command — Global Control Center</title>
+    <title>DURRA Command — Global Control Center</title>
     <meta name="description" content="Enterprise command center for managing HTML5 game deployments at scale">
     <link rel="stylesheet" href="css/dashboard.css">
     <link
@@ -20,7 +20,7 @@
             <div class="logo-icon">
                 <i data-lucide="zap" style="width: 20px; color: white;"></i>
             </div>
-            <span>Arcadia</span>
+            <span>DURRA</span>
         </div>
 
         <div class="nav-group">
@@ -308,7 +308,7 @@
         // API Configuration
         const API_CONFIG = {
             base: window.location.origin,
-            key: 'arcadia-admin-2025'
+            key: 'durra-admin-2025'
         };
 
         // Initialize Lucide icons
@@ -546,7 +546,7 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td style="padding: 16px;">Arcadia Labs</td>
+                                    <td style="padding: 16px;">DURRA Labs</td>
                                     <td style="padding: 16px;">12</td>
                                     <td style="padding: 16px;">$42.5k</td>
                                     <td style="padding: 16px;"><span class="badge badge-live">ACTIVE</span></td>
@@ -602,7 +602,7 @@
                             </div>
                              <div style="margin-bottom: 24px;">
                                 <label style="display: block; margin-bottom: 8px;">API Base URL</label>
-                                <input type="text" value="https://api.arcadia.io/v1" style="width: 100%; padding: 12px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; color: white;">
+                                <input type="text" value="https://api.durra.io/v1" style="width: 100%; padding: 12px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; color: white;">
                             </div>
                             <button class="btn btn-primary">Save Changes</button>
                         </div>
@@ -686,7 +686,7 @@
                 { msg: 'Game "Neon Clicker" deployment synced to 12 nodes', type: 'success' },
                 { msg: 'Latency spike detected in AP-South cluster', type: 'warn' },
                 { msg: 'Global cache purge initiated', type: 'sys' },
-                { msg: 'Publisher "Arcadia Labs" updated security policy', type: 'sys' },
+                { msg: 'Publisher "DURRA Labs" updated security policy', type: 'sys' },
                 { msg: 'Concurrent users exceeded 25,000 threshold', type: 'success' }
             ];
 
@@ -764,7 +764,7 @@
             const list = document.getElementById('game-list');
             try {
                 const response = await fetch(`${API_CONFIG.base}/api/admin/games`, {
-                    headers: { 'X-Arcadia-Admin-Key': API_CONFIG.key }
+                    headers: { 'X-DURRA-Admin-Key': API_CONFIG.key }
                 });
 
                 if (!response.ok) throw new Error('Infrastructure Offline');
@@ -953,7 +953,7 @@
 
                 const response = await fetch(`${API_CONFIG.base}/api/admin/games/upload`, {
                     method: 'POST',
-                    headers: { 'X-Arcadia-Admin-Key': API_CONFIG.key },
+                    headers: { 'X-DURRA-Admin-Key': API_CONFIG.key },
                     body: formData
                 });
 
@@ -1049,7 +1049,7 @@
                 const response = await fetch(`${API_CONFIG.base}/api/admin/games/${selectedGameId}/config`, {
                     method: 'PATCH',
                     headers: {
-                        'X-Arcadia-Admin-Key': API_CONFIG.key,
+                        'X-DURRA-Admin-Key': API_CONFIG.key,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ config: configObj })
@@ -1199,7 +1199,7 @@
 
                     const response = await fetch(`${API_CONFIG.base}/api/admin/games/upload`, {
                         method: 'POST',
-                        headers: { 'X-Arcadia-Admin-Key': API_CONFIG.key },
+                        headers: { 'X-DURRA-Admin-Key': API_CONFIG.key },
                         body: formData
                     });
 

@@ -15,10 +15,10 @@ class EnsureAdminKeyIsValid
     {
         $adminKey = config('app.admin_api_key');
 
-        if (!$adminKey || $request->header('X-Arcadia-Admin-Key') !== $adminKey) {
+        if (!$adminKey || $request->header('X-DURRA-Admin-Key') !== $adminKey) {
             return response()->json([
                 'error' => 'Unauthorized infrastructure access.',
-                'message' => 'Invalid or missing X-Arcadia-Admin-Key header.'
+                'message' => 'Invalid or missing X-DURRA-Admin-Key header.'
             ], 403);
         }
 

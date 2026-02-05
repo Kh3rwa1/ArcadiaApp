@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// ARCADIA DESIGN SYSTEM — $200B Aesthetic
+// DURRA DESIGN SYSTEM — $200B Aesthetic
 // Ultra-Premium Visual Language
 // ═══════════════════════════════════════════════════════════════════════════
 

@@ -1,7 +1,7 @@
 {
-    "name": "arcadia/backend",
+    "name": "durra/backend",
     "type": "project",
-    "description": "The Arcadia TikTok Games Backend.",
+    "description": "The DURRA TikTok Games Backend.",
     "keywords": [
         "laravel",
         "framework"

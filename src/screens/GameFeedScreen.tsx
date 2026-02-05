@@ -466,7 +466,7 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                 ) : isLoading ? (
                     <View style={styles.loadingContainer}>
                         <View style={styles.loadingPulse} />
-                        <Text style={styles.loadingText}>Synchronizing with Arcadia Core...</Text>
+                        <Text style={styles.loadingText}>Synchronizing with DURRA Core...</Text>
                     </View>
                 ) : (
                     <Animated.FlatList

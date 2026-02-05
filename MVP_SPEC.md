@@ -1,4 +1,4 @@
-# Arcadia MVP: The "Pure Flow" Specification
+# DURRA MVP: The "Pure Flow" Specification
 
 ## 🎯 The Core Loop
 **Swipe → 400ms Load → Play → Repeat.** 

@@ -204,7 +204,7 @@ function ProfileScreen({ onAdminPress }: Props) {
                                 </Text>
                             </TouchableOpacity>
                             <Text style={[typography.bodyLarge, { color: colors.textSecondary }, isSmallDevice && { fontSize: 16 }]}>
-                                Level {profile.level} Operative @ARCADIA
+                                Level {profile.level} Operative @DURRA
                             </Text>
 
                             {/* Streak Display */}

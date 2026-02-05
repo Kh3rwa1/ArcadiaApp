@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from './apiClient';
 
-const STORAGE_KEY_KEY = 'arcadia_admin_key';
+const STORAGE_KEY_KEY = 'durra_admin_key';
 
 export interface AdminGame {
     id: string;
@@ -57,7 +57,7 @@ export const adminService = {
             console.log('Admin Login connecting to:', `${baseUrl}/api/admin/games`);
             const response = await fetch(`${baseUrl}/api/admin/games`, {
                 headers: {
-                    'X-Arcadia-Admin-Key': key,
+                    'X-DURRA-Admin-Key': key,
                     'Accept': 'application/json'
                 }
             });
@@ -86,7 +86,7 @@ export const adminService = {
 
         const response = await fetch(`${baseUrl}/api/admin/games`, {
             headers: {
-                'X-Arcadia-Admin-Key': key,
+                'X-DURRA-Admin-Key': key,
                 'Accept': 'application/json'
             }
         });
@@ -107,7 +107,7 @@ export const adminService = {
             const response = await fetch(`${baseUrl}/api/admin/games/${gameId}/status`, {
                 method: 'PATCH',
                 headers: {
-                    'X-Arcadia-Admin-Key': key,
+                    'X-DURRA-Admin-Key': key,
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
@@ -128,7 +128,7 @@ export const adminService = {
             const response = await fetch(`${baseUrl}/api/admin/games/${gameId}/toggle-featured`, {
                 method: 'POST',
                 headers: {
-                    'X-Arcadia-Admin-Key': key,
+                    'X-DURRA-Admin-Key': key,
                     'Accept': 'application/json'
                 }
             });

@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Neon Nebula</title>
     <style>
         :root {
@@ -78,7 +78,9 @@
             transform: scale(1.05);
             box-shadow: 0 0 40px rgba(255, 255, 255, 0.2);
         }
+            canvas { transform: translateZ(0); backface-visibility: hidden; }
     </style>
+    <script src="../../_shared/durra-bridge.js"></script>
 </head>
 
 <body>

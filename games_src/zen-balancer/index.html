@@ -38,16 +38,31 @@
 <body>
     <div id="ball"></div>
     <div style="position:absolute; bottom:20px;">Move your mouse/finger to balance</div>
+    <script src="../_template/durra-bridge.js"></script>
     <script>
         const ball = document.getElementById('ball');
+        
+        let isPaused = false;
+        DURRA_Bridge.onPause = () => { isPaused = true; ball.style.opacity = '0.5'; };
+        DURRA_Bridge.onResume = () => { isPaused = false; ball.style.opacity = '1'; };
+
         window.addEventListener('mousemove', (e) => {
+            if (isPaused) return;
             ball.style.left = e.clientX + 'px';
             ball.style.top = e.clientY + 'px';
+            DURRA_Bridge.haptic('impactLight');
         });
+
+        window.addEventListener('touchstart', () => {
+            DURRA_Bridge.flowStart();
+        });
+
         window.addEventListener('touchmove', (e) => {
+            if (isPaused) return;
+            e.preventDefault();
             ball.style.left = e.touches[0].clientX + 'px';
             ball.style.top = e.touches[0].clientY + 'px';
-        });
+        }, { passive: false });
     </script>
 </body>
 

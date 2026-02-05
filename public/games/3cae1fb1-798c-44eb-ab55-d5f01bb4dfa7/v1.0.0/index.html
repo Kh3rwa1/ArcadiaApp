@@ -3,8 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Arcadia Bird</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>DURRA Bird</title>
     <style>
         :root {
             --accent: #3B82F6;
@@ -72,7 +72,9 @@
             text-transform: uppercase;
             letter-spacing: 2px;
         }
+            canvas { transform: translateZ(0); backface-visibility: hidden; }
     </style>
+    <script src="../../_shared/durra-bridge.js"></script>
 </head>
 
 <body>
@@ -80,7 +82,7 @@
     <div id="ui">
         <div id="score" class="score">0</div>
         <div id="start-overlay" class="overlay">
-            <h1 style="margin: 0; letter-spacing: 4px;">ARCADIA BIRD</h1>
+            <h1 style="margin: 0; letter-spacing: 4px;">DURRA BIRD</h1>
             <p style="opacity: 0.6;">TAP TO DEFY GRAVITY</p>
             <button class="btn" onclick="startGame()">INITIATE</button>
         </div>

@@ -1,4 +1,4 @@
-# Arcadia Visual & Motion System: "Inevitable Excellence"
+# DURRA Visual & Motion System: "Inevitable Excellence"
 
 ## 🎨 Color System (The Obsidian Palette)
 A system built on depth, not flatness. We use layers of dark grays to create hierarchy, reserving the primary accent only for meaningful status changes.

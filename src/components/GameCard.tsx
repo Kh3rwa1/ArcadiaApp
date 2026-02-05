@@ -169,7 +169,7 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
             if (Platform.OS !== 'web' && webViewRef.current) {
                 webViewRef.current.stopLoading();
                 // Clear any injected state
-                webViewRef.current.injectJavaScript('window.ARCADIA_CONFIG = null; true;');
+                webViewRef.current.injectJavaScript('window.DURRA_CONFIG = null; true;');
             }
         };
     }, []);
@@ -202,7 +202,7 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
         } else {
             const script = `
                 if(window.dispatchEvent) {
-                    window.dispatchEvent(new CustomEvent('ArcadiaBridge', { 
+                    window.dispatchEvent(new CustomEvent('DURRA_Bridge', { 
                         detail: ${message}
                     }));
                 }
@@ -310,7 +310,7 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
                                     <Text style={styles.categoryText}>{game.category?.toUpperCase() || 'EXPERIENCE'}</Text>
                                 </View>
                                 <Text style={styles.title}>{game.title}</Text>
-                                <Text style={styles.creator}>by {game.creator || 'Arcadia Core'}</Text>
+                                <Text style={styles.creator}>by {game.creator || 'DURRA Core'}</Text>
                             </View>
 
                             <View style={styles.statsContainer}>
@@ -351,7 +351,7 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
                     androidLayerType="hardware"
                     startInLoadingState={false}
                     injectedJavaScript={`
-                        window.ARCADIA_CONFIG = ${JSON.stringify(game.config || {})};
+                        window.DURRA_CONFIG = ${JSON.stringify(game.config || {})};
                         true;
                     `}
                     onLoadEnd={handleLoadEnd}
@@ -471,7 +471,7 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
                                 </View>
                                 <Text style={styles.title}>{game.title}</Text>
                                 <View style={styles.creatorRow}>
-                                    <Text style={styles.creator}>by {game.creator || 'Arcadia Core'}</Text>
+                                    <Text style={styles.creator}>by {game.creator || 'DURRA Core'}</Text>
                                     <Text style={styles.separator}>•</Text>
                                     <Ionicons name="musical-note" size={12} color={colors.textSecondary} />
                                     <Text style={styles.musicInfo}>Original Sound - {game.title}</Text>

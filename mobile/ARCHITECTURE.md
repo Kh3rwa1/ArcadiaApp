@@ -1,4 +1,4 @@
-# Arcadia Mobile: Screen Architecture & Performance Rules
+# DURRA Mobile: Screen Architecture & Performance Rules
 
 ## 🏛️ Component Architecture
 - **Feed Engine (`FlatList`)**: Uses `windowSize={3}` and `pagingEnabled` to simulate the TikTok swipe experience. Core logic relies on `onViewableItemsChanged` to manage game state transitions.

@@ -11,7 +11,7 @@ return [
     'faker_locale' => 'en_US',
     'key' => env('APP_KEY'),
     'cipher' => 'AES-256-CBC',
-    'admin_api_key' => env('ADMIN_API_KEY', 'arcadia-admin-2025'),
+    'admin_api_key' => env('ADMIN_API_KEY', 'durra-admin-2025'),
     'providers' => [
         Illuminate\Auth\AuthServiceProvider::class,
         Illuminate\Broadcasting\BroadcastServiceProvider::class,

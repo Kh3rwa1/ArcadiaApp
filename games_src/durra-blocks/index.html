@@ -3,8 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Arcadia Blocks</title>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>DURRA Blocks</title>
     <style>
         :root {
             --accent: #8B5CF6;
@@ -29,8 +30,10 @@
             position: relative;
             border: 1px solid rgba(255, 255, 255, 0.05);
             background: rgba(255, 255, 255, 0.02);
-            height: 90vh;
-            aspect-ratio: 1/2;
+            height: 85vh;
+            /* Reduced to give more space for controls on small screens */
+            aspect-ratio: 1/1.8;
+            margin-top: -40px;
         }
 
         canvas {
@@ -39,25 +42,9 @@
             width: 100%;
         }
 
-        #ui {
-            position: absolute;
-            top: 20px;
-            right: -100px;
-            width: 80px;
-            color: white;
-            pointer-events: none;
-        }
-
-        .score-box {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 10px;
-            border-radius: 12px;
-            text-align: center;
-        }
-
         .controls {
             position: absolute;
-            bottom: 20px;
+            bottom: -80px;
             left: 0;
             width: 100%;
             display: flex;
@@ -66,17 +53,24 @@
         }
 
         .ctrl-btn {
-            width: 60px;
-            height: 60px;
-            border-radius: 30px;
+            width: 64px;
+            height: 64px;
+            border-radius: 32px;
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 28px;
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        .ctrl-btn:active {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(0.95);
         }
 
         #start-screen {
@@ -96,11 +90,12 @@
             background: var(--accent);
             color: white;
             border: none;
-            padding: 16px 40px;
-            border-radius: 16px;
+            padding: 18px 44px;
+            border-radius: 18px;
             font-weight: 800;
             cursor: pointer;
             letter-spacing: 4px;
+            font-size: 16px;
         }
     </style>
 </head>
@@ -114,27 +109,28 @@
             <button class="btn" onclick="startGame()">POWER UP</button>
         </div>
         <div class="controls">
-            <div class="ctrl-btn" onclick="move(-1)">←</div>
-            <div class="ctrl-btn" onclick="rotate()">↻</div>
-            <div class="ctrl-btn" onclick="move(1)">→</div>
-            <div class="ctrl-btn" onclick="drop()">↓</div>
+            <div class="ctrl-btn" ontouchstart="handleControl(-1)">←</div>
+            <div class="ctrl-btn" ontouchstart="handleRotate()">↻</div>
+            <div class="ctrl-btn" ontouchstart="handleControl(1)">→</div>
+            <div class="ctrl-btn" ontouchstart="handleDrop()">↓</div>
         </div>
     </div>
 
+    <script src="../_template/durra-bridge.js"></script>
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
         const ROWS = 20, COLS = 10;
         let blockSize, board, currentPiece, score, gameOverState, lastTime = 0, dropCounter = 0;
+        let isPaused = false;
+
+        DURRA_Bridge.onPause = () => { isPaused = true; };
+        DURRA_Bridge.onResume = () => { isPaused = false; };
 
         const PIECES = [
-            [[1, 1, 1, 1]], // I
-            [[1, 1], [1, 1]], // O
-            [[0, 1, 0], [1, 1, 1]], // T
-            [[1, 0, 0], [1, 1, 1]], // L
-            [[0, 0, 1], [1, 1, 1]], // J
-            [[0, 1, 1], [1, 1, 0]], // S
-            [[1, 1, 0], [0, 1, 1]]  // Z
+            [[1, 1, 1, 1]], [[1, 1], [1, 1]], [[0, 1, 0], [1, 1, 1]],
+            [[1, 0, 0], [1, 1, 1]], [[0, 0, 1], [1, 1, 1]],
+            [[0, 1, 1], [1, 1, 0]], [[1, 1, 0], [0, 1, 1]]
         ];
 
         const COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#F43F5E', '#F59E0B', '#10B981', '#06B6D4'];
@@ -145,38 +141,27 @@
             board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
             score = 0;
             gameOverState = false;
-
-            // Bridge: Ready Signal
-            window.parent.postMessage(JSON.stringify({ version: "1.0", type: "LIFECYCLE", action: "HEARTBEAT_READY", payload: { engine: "vanilla_js" } }), "*");
         }
 
         function createPiece() {
             const idx = Math.floor(Math.random() * PIECES.length);
-            return {
-                shape: PIECES[idx],
-                color: COLORS[idx],
-                pos: { x: Math.floor(COLS / 2) - 1, y: 0 }
-            };
+            return { shape: PIECES[idx], color: COLORS[idx], pos: { x: Math.floor(COLS / 2) - 1, y: 0 } };
         }
 
         function startGame() {
+            DURRA_Bridge.flowStart();
             init();
             currentPiece = createPiece();
             document.getElementById('start-screen').style.display = 'none';
             gameOverState = false;
             requestAnimationFrame(update);
-
-            // Bridge: Start Signal
-            window.parent.postMessage(JSON.stringify({ version: "1.0", type: "GAMEPLAY", action: "GAME_START" }), "*");
         }
 
         function collide(board, piece) {
             const { shape, pos } = piece;
             for (let y = 0; y < shape.length; y++) {
                 for (let x = 0; x < shape[y].length; x++) {
-                    if (shape[y][x] !== 0 && (board[y + pos.y] === undefined || board[y + pos.y][x + pos.x] === undefined || board[y + pos.y][x + pos.x] !== 0)) {
-                        return true;
-                    }
+                    if (shape[y][x] !== 0 && (board[y + pos.y] === undefined || board[y + pos.y][x + pos.x] === undefined || board[y + pos.y][x + pos.x] !== 0)) return true;
                 }
             }
             return false;
@@ -185,9 +170,7 @@
         function merge(board, piece) {
             piece.shape.forEach((row, y) => {
                 row.forEach((value, x) => {
-                    if (value !== 0) {
-                        board[y + piece.pos.y][x + piece.pos.x] = piece.color;
-                    }
+                    if (value !== 0) board[y + piece.pos.y][x + piece.pos.x] = piece.color;
                 });
             });
         }
@@ -195,29 +178,16 @@
         function sweep() {
             let rowCount = 0;
             outer: for (let y = board.length - 1; y >= 0; y--) {
-                for (let x = 0; x < board[y].length; x++) {
-                    if (board[y][x] === 0) continue outer;
-                }
+                for (let x = 0; x < board[y].length; x++) if (board[y][x] === 0) continue outer;
                 const row = board.splice(y, 1)[0].fill(0);
                 board.unshift(row);
-                y++;
-                rowCount++;
+                y++; rowCount++;
             }
             if (rowCount > 0) {
                 score += rowCount * 100;
-                // Bridge: Score Update
-                window.parent.postMessage(JSON.stringify({ version: "1.0", type: "GAMEPLAY", action: "SCORE_UPDATE", payload: { score: score } }), "*");
+                DURRA_Bridge.reportScore(score);
+                DURRA_Bridge.haptic('impactMedium');
             }
-        }
-
-        function drawPiece(piece, offset = { x: 0, y: 0 }) {
-            piece.shape.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value !== 0) {
-                        drawBlock((x + piece.pos.x + offset.x) * blockSize, (y + piece.pos.y + offset.y) * blockSize, piece.color);
-                    }
-                });
-            });
         }
 
         function drawBlock(x, y, color) {
@@ -225,22 +195,30 @@
             ctx.beginPath();
             ctx.roundRect(x + 2, y + 2, blockSize - 4, blockSize - 4, 8);
             ctx.fill();
-
-            // Inner glow
             ctx.strokeStyle = 'rgba(255,255,255,0.3)';
             ctx.lineWidth = 1;
             ctx.stroke();
         }
 
-        function move(dir) {
+        function handleControl(dir) {
+            if (gameOverState || isPaused) return;
             currentPiece.pos.x += dir;
             if (collide(board, currentPiece)) currentPiece.pos.x -= dir;
+            else DURRA_Bridge.haptic('impactLight');
         }
 
-        function rotate() {
+        function handleRotate() {
+            if (gameOverState || isPaused) return;
             const prevShape = currentPiece.shape;
             currentPiece.shape = currentPiece.shape[0].map((val, index) => currentPiece.shape.map(row => row[index]).reverse());
             if (collide(board, currentPiece)) currentPiece.shape = prevShape;
+            else DURRA_Bridge.haptic('impactMedium');
+        }
+
+        function handleDrop() {
+            if (gameOverState || isPaused) return;
+            drop();
+            DURRA_Bridge.haptic('impactLight');
         }
 
         function drop() {
@@ -254,41 +232,41 @@
                     gameOverState = true;
                     document.getElementById('start-screen').style.display = 'flex';
                     document.getElementById('start-screen').querySelector('h1').innerText = 'COLLISION';
-                    // Bridge: Complete Signal
-                    window.parent.postMessage(JSON.stringify({ version: "1.0", type: "GAMEPLAY", action: "GAME_COMPLETE", payload: { points: score, status: "loss" } }), "*");
+                    DURRA_Bridge.complete({ points: score, status: "loss" });
                 }
             }
             dropCounter = 0;
         }
 
         function update(time = 0) {
-            if (gameOverState) return;
+            if (gameOverState || isPaused) {
+                if (!gameOverState) requestAnimationFrame(update);
+                return;
+            }
             const deltaTime = time - lastTime;
             lastTime = time;
             dropCounter += deltaTime;
             if (dropCounter > 1000) drop();
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Draw Grid
-            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-            for (let i = 0; i < COLS; i++) ctx.strokeRect(i * blockSize, 0, blockSize, canvas.height);
-            for (let i = 0; i < ROWS; i++) ctx.strokeRect(0, i * blockSize, canvas.width, blockSize);
-
             board.forEach((row, y) => {
                 row.forEach((value, x) => {
                     if (value !== 0) drawBlock(x * blockSize, y * blockSize, value);
                 });
             });
-            drawPiece(currentPiece);
+            currentPiece.shape.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) drawBlock((x + currentPiece.pos.x) * blockSize, (y + currentPiece.pos.y) * blockSize, currentPiece.color);
+                });
+            });
             requestAnimationFrame(update);
         }
 
         window.addEventListener('keydown', e => {
-            if (e.key === 'ArrowLeft') move(-1);
-            if (e.key === 'ArrowRight') move(1);
-            if (e.key === 'ArrowDown') drop();
-            if (e.key === 'ArrowUp') rotate();
+            if (e.key === 'ArrowLeft') handleControl(-1);
+            if (e.key === 'ArrowRight') handleControl(1);
+            if (e.key === 'ArrowDown') handleDrop();
+            if (e.key === 'ArrowUp') handleRotate();
         });
 
         init();

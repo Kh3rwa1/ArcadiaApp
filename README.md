@@ -1,4 +1,4 @@
-# Arcadia — TikTok Games Platform
+# DURRA — TikTok Games Platform
 
 ## 🌐 Backend (Laravel)
 ### Overview

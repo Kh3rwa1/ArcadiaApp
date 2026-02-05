@@ -1,4 +1,4 @@
-# Arcadia Experience Bridge Protocol (v1.1)
+# DURRA Experience Bridge Protocol (v1.2)
 
 ## 🏗️ Philosophy
 - **Host is Master**: The mini-app is a guest and must respond to lifecycle signals.
@@ -13,8 +13,8 @@ All communication happens via `window.ReactNativeWebView.postMessage` (Mini-App 
 ### Standard Wrapper
 ```json
 {
-  "version": "1.0",
-  "type": "LIFECYCLE | GAMEPLAY | EVENT",
+  "version": "1.2",
+  "type": "LIFECYCLE | GAMEPLAY | EVENT | UX",
   "action": "STRING",
   "payload": {}
 }
@@ -22,7 +22,8 @@ All communication happens via `window.ReactNativeWebView.postMessage` (Mini-App 
 
 ---
 
-## 📲 1. Host → Mini-App (Injected via `injectJavaScript`)
+## 📲 1. Host → Mini-App (Injected / Dispatched)
+The Host dispatches `CustomEvent('DURRA_Bridge', { detail: { action, payload } })` to the `window`.
 
 | Action | Payload | Description |
 | :--- | :--- | :--- |
@@ -30,67 +31,47 @@ All communication happens via `window.ReactNativeWebView.postMessage` (Mini-App 
 | `LIFECYCLE_RESUME` | `{}` | Resume normal operations and audio. |
 | `AUDIO_CONTROL` | `{"muted": boolean, "volume": 0.0-1.0}` | Global volume control. |
 | `APP_CONFIG_UPDATE` | `{"config": object}` | Push remote configuration updates. |
-| `UX_HAPTIC` | `{"type": "impactLight|impactMedium|impactHeavy|notificationSuccess|notificationWarning|notificationError"}` | Trigger device haptics. |
+| `UX_HAPTIC` | `{"type": "impactLight|impactMedium|..."}` | Trigger device haptics (Host side). |
 | `APP_RESTART` | `{}` | Reset experience state. |
 
 ---
 
 ## 🎮 2. Mini-App → Host (Sent via `postMessage`)
+Use the `DURRA_Bridge` SDK or send raw JSON.
 
 | Action | Payload | Requirement |
 | :--- | :--- | :--- |
-| `HEARTBEAT_READY` | `{"type": "game|utility|tool|social", "engine": "phaser|react|vue|..."}` | **Critical.** Sent after assets load. |
-| `FLOW_START` | `{}` | Sent when user starts the primary interaction. |
-| `STATE_UPDATE` | `{"key": string, "value": any}` | Update host about persistence-worthy state. |
+| `HEARTBEAT_READY` | `{"type": "game", "engine": "canvas|react|..."}` | **Critical.** Sent after assets load. |
+| `FLOW_START` | `{}` | Sent when user starts primary interaction. |
+| `STATE_UPDATE` | `{"key": string, "value": any}` | Update host about persistence state. |
 | `FLOW_COMPLETE` | `{"result": any, "status": "success|fail"}` | Triggers post-experience workflow. |
-| `ERROR_REPORT` | `{"message": string}` | For internal logging. |
+| `UX_HAPTIC` | `{"type": "impactLight|..."}` | Request haptics from host. |
 
 ---
 
-## 🛡️ Security & Sandboxing (WebView Config)
-To prevent "hostile" games from breaking the app, the following constraints are enforced:
+## 🧪 Example Payloads (SDK)
 
-1. **CSP (Content Security Policy)**: 
-   `default-src 'self' 'unsafe-inline'; connect-src 'self' https://api.arcadia.com;`
-   *Prevents games from exfiltrating data to unknown servers.*
-2. **Feature Policy**:
-   `allow="autoplay; muted; haptics;"`
-   *Explicitly blocks camera, microphone, and geolocation.*
-3. **Navigation Interception**:
-   `onShouldStartLoadWithRequest` in React Native returns `false` for all URLs not matching your `games.cdn.com` domain. *No external links allowed.*
-
----
-
-## 🧪 Example Payloads
-
-### Game reporting completion
-```json
-window.ReactNativeWebView.postMessage(JSON.stringify({
-  "version": "1.0",
-  "type": "GAMEPLAY",
-  "action": "GAME_COMPLETE",
-  "payload": {
-    "points": 1250,
-    "status": "win",
-    "metadata": { "level": 5 }
-  }
-}));
-```
-
-### App muting the game on swipe
 ```javascript
-window.dispatchEvent(new CustomEvent('ArcadiaBridge', { 
-  detail: { 
-    type: "LIFECYCLE",
-    action: "AUDIO_CONTROL", 
-    payload: { "muted": true } 
-  } 
-}));
+// Game reporting completion
+DURRA_Bridge.complete({
+  points: 1250,
+  status: "win"
+});
+
+// Requesting haptic feedback
+DURRA_Bridge.haptic('impactMedium');
 ```
+
+---
+
+## 🛡️ Security & Sandboxing
+Enforced via WebView Configuration:
+
+1. **CSP**: `default-src 'self' 'unsafe-inline'; connect-src 'self' https://api.durra.io;`
+2. **Feature Policy**: `allow="autoplay; muted; haptics;"`
 
 ---
 
 ## ⚠️ Failure Handling
-1. **Z-Index Hijacking**: Games are forced to `overflow: hidden` on the body via injected CSS.
-2. **Infinite Loops**: The App monitors WebView CPU usage (Android Performance API). If usage $> 90\%$ for 3 seconds without user interaction, the instance is terminated.
-3. **Ghost Audio**: If a game continues playing audio after `LIFECYCLE_PAUSE`, the App forces `muted=true` via the WebView's Android Media Controller.
+1. **Ghost Audio**: If audio survives `LIFECYCLE_PAUSE`, the host forces `muted=true`.
+2. **Infinite Loops**: Instances exceeding 90% CPU for 3s without interaction are terminated.

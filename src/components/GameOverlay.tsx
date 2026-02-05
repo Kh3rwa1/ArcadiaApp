@@ -15,7 +15,7 @@ interface Props {
 
 export default function GameOverlay({
     game,
-    creator = 'Arcadia Labs',
+    creator = 'DURRA Labs',
     onFollow,
     isFollowing = false
 }: Props) {

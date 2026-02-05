@@ -56,7 +56,7 @@ class FeedController extends Controller
             'status' => 'success',
             'drop' => [
                 'game_id' => $game->uuid ?? null,
-                'title' => $game->title ?? 'Arcadia Daily',
+                'title' => $game->title ?? 'DURRA Daily',
             ],
             'challenge' => [
                 'game_id' => $game->uuid ?? null,

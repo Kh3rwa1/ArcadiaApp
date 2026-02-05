@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Arcadia",
-    "slug": "arcadia-games",
+    "name": "DURRA",
+    "slug": "durra-games",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,14 +16,14 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.arcadia.games"
+      "bundleIdentifier": "com.durra.games"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.arcadia.games",
+      "package": "com.durra.games",
       "versionCode": 2,
       "usesCleartextTraffic": true
     },

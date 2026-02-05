@@ -2,225 +2,16 @@
 <html lang="en">
 
 <head>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://durra-games.com">
+    
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Neon Knights</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html,
-        body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: #05050f;
-            font-family: 'Inter', system-ui, sans-serif;
-        }
-
-        #game-container {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            touch-action: none;
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            outline: none;
-        }
-
-        /* HUD */
-        #hud {
-            position: absolute;
-            top: 20px;
-            left: 0;
-            right: 0;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 24px;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        .hud-score {
-            font-size: 42px;
-            font-weight: 900;
-            color: #fff;
-            text-shadow: 0 0 30px rgba(239, 68, 68, 0.8);
-            letter-spacing: 2px;
-        }
-
-        .hud-wave {
-            font-size: 16px;
-            color: rgba(255, 255, 255, 0.6);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .hud-wave span {
-            font-size: 24px;
-            font-weight: 700;
-            color: #EF4444;
-        }
-
-        /* Health Bar */
-        #health-container {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        .health-icon {
-            font-size: 24px;
-        }
-
-        .health-bar-bg {
-            width: 200px;
-            height: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 5px;
-            overflow: hidden;
-        }
-
-        .health-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #EF4444, #F97316);
-            border-radius: 5px;
-            transition: width 0.2s;
-        }
-
-        /* Game Over */
-        #game-over {
-            position: absolute;
-            inset: 0;
-            background: rgba(5, 5, 15, 0.95);
-            backdrop-filter: blur(20px);
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-        }
-
-        #game-over.active {
-            display: flex;
-        }
-
-        .game-over-title {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.5);
-            text-transform: uppercase;
-            letter-spacing: 6px;
-            margin-bottom: 10px;
-        }
-
-        .final-score {
-            font-size: 72px;
-            font-weight: 900;
-            color: #EF4444;
-            text-shadow: 0 0 50px rgba(239, 68, 68, 0.8);
-        }
-
-        .final-wave {
-            font-size: 18px;
-            color: rgba(255, 255, 255, 0.6);
-            margin-top: 10px;
-        }
-
-        .restart-btn {
-            margin-top: 40px;
-            padding: 18px 56px;
-            font-size: 16px;
-            font-weight: 700;
-            color: #fff;
-            background: linear-gradient(135deg, #EF4444, #F97316);
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            transition: transform 0.2s;
-        }
-
-        .restart-btn:hover {
-            transform: scale(1.05);
-        }
-
-        /* Start Screen */
-        #start-screen {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(180deg, rgba(5, 5, 15, 0.95) 0%, rgba(5, 5, 15, 1) 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 200;
-        }
-
-        #start-screen.hidden {
-            display: none;
-        }
-
-        .game-title {
-            font-size: 52px;
-            font-weight: 900;
-            color: #fff;
-            text-shadow: 0 0 60px rgba(239, 68, 68, 1);
-            margin-bottom: 8px;
-            letter-spacing: 4px;
-        }
-
-        .game-subtitle {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.4);
-            text-transform: uppercase;
-            letter-spacing: 8px;
-            margin-bottom: 60px;
-        }
-
-        .start-btn {
-            padding: 22px 70px;
-            font-size: 18px;
-            font-weight: 700;
-            color: #05050f;
-            background: #EF4444;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-            transition: all 0.3s;
-        }
-
-        .start-btn:hover {
-            background: #F97316;
-        }
-
-        /* Controls */
-        .controls-hint {
-            position: absolute;
-            bottom: 80px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.3);
-            pointer-events: none;
-        }
-    </style>
+    <style>* {margin:0;padding:0;box-sizing:border-box;} html, body {width:100%;height:100%;overflow:hidden;background:#05050f;font-family:'Inter', system-ui, sans-serif;} #game-container {width:100%;height:100%;position:relative;touch-action:none;} canvas {display:block;width:100%;height:100%;outline:none;} #hud {position:absolute;top:20px;left:0;right:0;display:flex;justify-content:space-between;padding:0 24px;pointer-events:none;z-index:10;} .hud-score {font-size:42px;font-weight:900;color:#fff;text-shadow:0 0 30px rgba(239, 68, 68, 0.8);letter-spacing:2px;} .hud-wave {font-size:16px;color:rgba(255, 255, 255, 0.6);text-transform:uppercase;letter-spacing:2px;} .hud-wave span {font-size:24px;font-weight:700;color:#EF4444;} #health-container {position:absolute;bottom:30px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;pointer-events:none;z-index:10;} .health-icon {font-size:24px;} .health-bar-bg {width:200px;height:10px;background:rgba(255, 255, 255, 0.1);border-radius:5px;overflow:hidden;} .health-bar {height:100%;background:linear-gradient(90deg, #EF4444, #F97316);border-radius:5px;transition:width 0.2s;} #game-over {position:absolute;inset:0;background:rgba(5, 5, 15, 0.95);backdrop-filter:blur(20px);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100;} #game-over.active {display:flex;} .game-over-title {font-size:14px;color:rgba(255, 255, 255, 0.5);text-transform:uppercase;letter-spacing:6px;margin-bottom:10px;} .final-score {font-size:72px;font-weight:900;color:#EF4444;text-shadow:0 0 50px rgba(239, 68, 68, 0.8);} .final-wave {font-size:18px;color:rgba(255, 255, 255, 0.6);margin-top:10px;} .restart-btn {margin-top:40px;padding:18px 56px;font-size:16px;font-weight:700;color:#fff;background:linear-gradient(135deg, #EF4444, #F97316);border:none;border-radius:50px;cursor:pointer;text-transform:uppercase;letter-spacing:2px;transition:transform 0.2s;} .restart-btn:hover {transform:scale(1.05);} #start-screen {position:absolute;inset:0;background:linear-gradient(180deg, rgba(5, 5, 15, 0.95) 0%, rgba(5, 5, 15, 1) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;} #start-screen.hidden {display:none;} .game-title {font-size:52px;font-weight:900;color:#fff;text-shadow:0 0 60px rgba(239, 68, 68, 1);margin-bottom:8px;letter-spacing:4px;} .game-subtitle {font-size:13px;color:rgba(255, 255, 255, 0.4);text-transform:uppercase;letter-spacing:8px;margin-bottom:60px;} .start-btn {padding:22px 70px;font-size:18px;font-weight:700;color:#05050f;background:#EF4444;border:none;border-radius:50px;cursor:pointer;text-transform:uppercase;letter-spacing:4px;transition:all 0.3s;} .start-btn:hover {background:#F97316;} .controls-hint {position:absolute;bottom:80px;left:0;right:0;text-align:center;font-size:12px;color:rgba(255, 255, 255, 0.3);pointer-events:none;} canvas {transform:translateZ(0);backface-visibility:hidden;}</style>
+    <script src="../../_shared/durra-bridge.js"></script>
 </head>
 
 <body>
@@ -311,7 +102,7 @@
             scene.render();
 
             // ═══════════════════════════════════════════════════════════════════════════
-            // Arcadia Bridge Integration
+            // DURRA Bridge Integration
             // ═══════════════════════════════════════════════════════════════════════════
             window.addEventListener('message', (e) => {
                 try {
@@ -323,7 +114,7 @@
                     }
                 } catch (err) { }
             });
-            window.addEventListener('ArcadiaBridge', (e) => {
+            window.addEventListener('DURRA_Bridge', (e) => {
                 const data = e.detail;
                 if (data.action === 'LIFECYCLE_PAUSE') pauseGame();
                 if (data.action === 'LIFECYCLE_RESUME') resumeGame();

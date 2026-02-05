@@ -7,7 +7,7 @@ import { GameProgress } from '../types';
 // Handles save/load with offline-first strategy and background sync
 // ═══════════════════════════════════════════════════════════════════════════
 
-const TUNNEL_URL = 'https://arcadia-api-2025.loca.lt';
+const TUNNEL_URL = 'https://durra-api-2025.loca.lt';
 const LOCAL_IP = '192.168.0.101';
 
 const API_BASE = Platform.OS === 'web'

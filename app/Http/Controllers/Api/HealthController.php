@@ -16,7 +16,7 @@ class HealthController extends Controller
         return response()->json([
             'status' => 'ok',
             'timestamp' => now()->toIso8601String(),
-            'service' => 'arcadia-api',
+            'service' => 'durra-api',
             'version' => '1.0.0'
         ]);
     }

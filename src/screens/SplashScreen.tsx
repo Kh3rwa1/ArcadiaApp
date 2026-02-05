@@ -90,14 +90,14 @@ export default function SplashScreen({ onComplete }: Props) {
                 ]}
             >
                 <View style={styles.logo}>
-                    <Text style={styles.logoText}>A</Text>
+                    <Text style={styles.logoText}>D</Text>
                 </View>
             </Animated.View>
 
             {/* Brand */}
             <Animated.View style={[styles.brandContainer, { opacity: textOpacity, transform: [{ scale: textScale }] }]}>
                 <Text style={styles.brandName}>
-                    ARCADIA
+                    DURRA
                 </Text>
                 <Animated.Text style={[styles.brandTagline, { opacity: taglineOpacity }]}>
                     THE FUTURE OF PLAY

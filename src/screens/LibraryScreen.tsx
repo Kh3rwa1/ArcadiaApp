@@ -154,11 +154,11 @@ export default function LibraryScreen({ onSelectCategory, onLaunchGame }: Librar
                                 <TouchableOpacity
                                     key={i}
                                     style={styles.historyItem}
-                                    onPress={() => onLaunchGame('arcadia-bird')}
+                                    onPress={() => onLaunchGame('durra-bird')}
                                 >
                                     <View style={styles.historyThumb} />
                                     <View>
-                                        <Text style={styles.historyTitle}>Arcadia Bird</Text>
+                                        <Text style={styles.historyTitle}>DURRA Bird</Text>
                                         <Text style={styles.historyMeta}>Last played 2h ago</Text>
                                     </View>
                                     <Ionicons name="play-circle-outline" size={24} color={colors.accentBright} style={styles.historyIcon} />

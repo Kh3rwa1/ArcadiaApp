@@ -8,9 +8,9 @@ import { colors, typography, spacing, radii, shadows, motion } from '../theme';
 import { useWindowDimensions, useIsSmallDevice, useScaleAnimation } from '../hooks/useDimensions';
 
 const TRENDING = [
-    { id: 'arcadia-bird', title: 'Arcadia Bird', plays: '124k', color: '#3B82F6' },
+    { id: 'durra-bird', title: 'DURRA Bird', plays: '124k', color: '#3B82F6' },
     { id: 'neon-uuid', title: 'Neon Clicker', plays: '98k', color: '#06B6D4' },
-    { id: 'arcadia-blocks', title: 'Arcadia Blocks', plays: '82k', color: '#F43F5E' },
+    { id: 'durra-blocks', title: 'DURRA Blocks', plays: '82k', color: '#F43F5E' },
 ];
 
 const RECENT_DROPS = [
