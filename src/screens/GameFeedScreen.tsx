@@ -282,13 +282,41 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
         }
     }).current;
 
+    const normalizeGameEvent = (event?: string) => {
+        const normalizedEvent = (event || '').toUpperCase();
+        const eventAliases: Record<string, string> = {
+            GAME_STARTED: 'GAME_START',
+            FLOW_STARTED: 'FLOW_START',
+            RESUME: 'LIFECYCLE_RESUME',
+        };
+
+        return eventAliases[normalizedEvent] || normalizedEvent;
+    };
+
+    const START_PLAYING_EVENTS = new Set([
+        'FLOW_START',
+        'START',
+        'GAME_START',
+        'LIFECYCLE_RESUME',
+    ]);
+
+    const STOP_PLAYING_EVENTS = new Set([
+        'GAME_OVER',
+        'GAME_COMPLETE',
+        'FLOW_COMPLETE',
+        'LIFECYCLE_PAUSE',
+        'LIFECYCLE_STOP',
+    ]);
+
     const handleGameEvent = useCallback(async (action: string, payload: any) => {
         const gameId = filteredGames[activeIndex]?.id;
         if (!gameId) return;
 
-        if (action === 'FLOW_START' || action === 'START' || action === 'GAME_START') {
+        const normalizedAction = normalizeGameEvent(action);
+
+        if (START_PLAYING_EVENTS.has(normalizedAction)) {
             setIsPlaying(true); // Hide navbar when experience starts
-        } else if (action === 'SCORE' || action === 'SCORE_UPDATE' || action === 'STATE_UPDATE') {
+        } else if (normalizedAction === 'SCORE' || normalizedAction === 'SCORE_UPDATE' || normalizedAction === 'STATE_UPDATE') {
             if (payload?.score !== undefined) {
                 setCurrentScore(payload.score);
             }
@@ -302,7 +330,7 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                 stiffness: 200,
                 useNativeDriver: true,
             }).start();
-        } else if (action === 'GAME_OVER' || action === 'GAME_COMPLETE' || action === 'FLOW_COMPLETE') {
+        } else if (STOP_PLAYING_EVENTS.has(normalizedAction)) {
             setShowResults(true);
             setIsPlaying(false); // Show navbar when flow completes
 
@@ -323,7 +351,7 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                     setPercentile(response.percentile);
                 }
             }
-        } else if (action === 'ERROR_REPORT') {
+        } else if (normalizedAction === 'ERROR_REPORT') {
             console.warn(`[Bridge Error] ${payload?.message} `);
         }
     }, [activeIndex, filteredGames, userId, isPlaying]);
