@@ -5,8 +5,8 @@ import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
-import { Game, GameProgress } from '../types';
-import { colors, typography, spacing, radii, shadows, touchTargets } from '../theme';
+import { Game } from '../types';
+import { colors, typography, spacing, radii } from '../theme';
 import { SkeletonShimmer } from './SkeletonShimmer';
 import { useThermalState } from '../hooks/useThermalState';
 import { gameProgressService } from '../services/gameProgressService';
@@ -92,7 +92,7 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
     const [hasError, setHasError] = useState(false);
 
     // Thermal state for adaptive quality
-    const { qualityLevel, shouldDisableMeshGradients, shouldReduceAnimations } = useThermalState();
+    useThermalState();
 
     // Animations
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -104,11 +104,13 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
 
     // Real-time Stats Integration
     const [realStats, setRealStats] = useState({
-        likes: game.likes || 1234,
-        comments: 0,
-        playing: 0,
+        likes: game.likes ?? 0,
+        playing: game.plays ?? 0,
         isLiked: false
     });
+
+    const likesCount = realStats.likes ?? 0;
+    const playsCount = realStats.playing ?? game.plays ?? 0;
 
     useEffect(() => {
         if (isActive) {
@@ -310,17 +312,17 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
                                     <Text style={styles.categoryText}>{game.category?.toUpperCase() || 'EXPERIENCE'}</Text>
                                 </View>
                                 <Text style={styles.title}>{game.title}</Text>
-                                <Text style={styles.creator}>by {game.creator || 'DURRA Core'}</Text>
+                                {game.creator ? <Text style={styles.creator}>by {game.creator}</Text> : null}
                             </View>
 
                             <View style={styles.statsContainer}>
                                 <View style={styles.statItem}>
                                     <Ionicons name="heart" size={18} color={colors.accent} />
-                                    <Text style={styles.statText}>{game.likes?.toLocaleString() || '1.2k'}</Text>
+                                    <Text style={styles.statText}>{likesCount.toLocaleString()}</Text>
                                 </View>
                                 <View style={styles.statItem}>
                                     <Ionicons name="play" size={18} color={colors.textPrimary} />
-                                    <Text style={styles.statText}>{game.plays?.toLocaleString() || '5.4k'}</Text>
+                                    <Text style={styles.statText}>{playsCount.toLocaleString()}</Text>
                                 </View>
                             </View>
                         </View>
@@ -439,11 +441,6 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.actionButton} activeOpacity={0.8}>
-                            <Ionicons name="chatbubble-ellipses" size={30} color="#FFF" style={styles.actionIconShadow} />
-                            <Text style={styles.actionLabel}>{realStats.comments || '248'}</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.actionButton} activeOpacity={0.8}>
                             <Ionicons name="share-social" size={30} color="#FFF" style={styles.actionIconShadow} />
                             <Text style={styles.actionLabel}>Share</Text>
                         </TouchableOpacity>
@@ -470,12 +467,7 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
                                     <Text style={styles.categoryText}>{game.category?.toUpperCase() || 'EXPERIENCE'}</Text>
                                 </View>
                                 <Text style={styles.title}>{game.title}</Text>
-                                <View style={styles.creatorRow}>
-                                    <Text style={styles.creator}>by {game.creator || 'DURRA Core'}</Text>
-                                    <Text style={styles.separator}>•</Text>
-                                    <Ionicons name="musical-note" size={12} color={colors.textSecondary} />
-                                    <Text style={styles.musicInfo}>Original Sound - {game.title}</Text>
-                                </View>
+                                {game.creator ? <Text style={styles.creator}>by {game.creator}</Text> : null}
                             </View>
                         </View>
                     </View>
@@ -729,23 +721,6 @@ const styles = StyleSheet.create({
         borderWidth: 6,
         borderColor: '#111',
         backgroundColor: '#222',
-    },
-    creatorRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 4,
-        opacity: 0.9,
-    },
-    separator: {
-        color: colors.textSecondary,
-        marginHorizontal: 6,
-        fontSize: 10,
-    },
-    musicInfo: {
-        ...typography.labelSmall,
-        color: '#FFF',
-        marginLeft: 6,
-        fontWeight: '500',
     },
     meshGradient: {
         position: 'absolute',
