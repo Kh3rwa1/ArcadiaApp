@@ -8,7 +8,6 @@ import {
     Text,
     TouchableOpacity,
     Platform,
-    ScrollView
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,10 +17,9 @@ import { BlurView } from 'expo-blur';
 import GameCard from '../components/GameCard';
 import { api } from '../services/api';
 import { userService } from '../services/userService';
-import { useWindowDimensions, useIsSmallDevice } from '../hooks/useDimensions';
+import { useWindowDimensions } from '../hooks/useDimensions';
 import { Game } from '../types';
 import { colors, typography, spacing, radii, motion, touchTargets } from '../theme';
-import { useThermalState, getRenderBatchSize } from '../hooks/useThermalState';
 import DiscoverScreen from './DiscoverScreen';
 import LibraryScreen from './LibraryScreen';
 import ProfileScreen from './ProfileScreen';
@@ -59,7 +57,6 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
     const [showDiscover, setShowDiscover] = useState(false);
     const [pendingGameIndex, setPendingGameIndex] = useState<number | null>(null);
     const flatListRef = useRef<FlatList>(null);
-    const scrollY = useRef(new Animated.Value(0)).current;
     const scoreScale = useRef(new Animated.Value(1)).current;
 
     // Navbar animation
@@ -122,6 +119,33 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                 }),
             ]).start();
         }
+    }, [isPlaying]);
+
+    useEffect(() => {
+        if (Platform.OS !== 'web') return;
+
+        const html = document.documentElement;
+        const body = document.body;
+
+        if (!isPlaying) {
+            html.style.overflow = '';
+            body.style.overflow = '';
+            body.style.overscrollBehavior = '';
+            body.style.touchAction = '';
+            return;
+        }
+
+        html.style.overflow = 'hidden';
+        body.style.overflow = 'hidden';
+        body.style.overscrollBehavior = 'none';
+        body.style.touchAction = 'none';
+
+        return () => {
+            html.style.overflow = '';
+            body.style.overflow = '';
+            body.style.overscrollBehavior = '';
+            body.style.touchAction = '';
+        };
     }, [isPlaying]);
 
     // Handle pending scrolls when returning to feed
@@ -203,14 +227,6 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
 
     const handleCategorySelect = (categoryId: string) => {
         setSelectedCategory(categoryId);
-        if (Platform.OS !== 'web') {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-    };
-
-    const toggleCategories = () => {
-        // Toggle discover instead of simple categories if we want the "merged" experience
-        setShowDiscover(!showDiscover);
         if (Platform.OS !== 'web') {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
@@ -477,7 +493,10 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                         renderItem={renderItem}
                         keyExtractor={(item) => item.id}
                         pagingEnabled
+                        scrollEnabled={!isPlaying}
                         showsVerticalScrollIndicator={false}
+                        bounces={false}
+                        overScrollMode="never"
                         snapToInterval={SCREEN_HEIGHT}
                         snapToAlignment="start"
                         decelerationRate="fast"
