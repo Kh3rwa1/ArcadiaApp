@@ -1,4 +1,4 @@
-import React, { useRef, memo, useEffect, useState } from 'react';
+import React, { useRef, memo, useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, Animated, ActivityIndicator, Platform, Text, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -28,6 +28,8 @@ interface Props {
     isPreload: boolean;
     isPlaying?: boolean;
     onGameEvent?: (event: string, data: unknown) => void;
+    onInteractionStart?: () => void;
+    onInteractionEnd?: () => void;
 }
 
 // Premium Loading State Component
@@ -86,10 +88,23 @@ function ErrorState() {
     );
 }
 
-const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEvent }: Props) => {
+const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEvent, onInteractionStart, onInteractionEnd }: Props) => {
     const webViewRef = useRef<WebView>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
+    const hasActiveInteractionRef = useRef(false);
+
+    const triggerInteractionStart = useCallback(() => {
+        if (!isActive || hasActiveInteractionRef.current) return;
+        hasActiveInteractionRef.current = true;
+        onInteractionStart?.();
+    }, [isActive, onInteractionStart]);
+
+    const triggerInteractionEnd = useCallback(() => {
+        if (!hasActiveInteractionRef.current) return;
+        hasActiveInteractionRef.current = false;
+        onInteractionEnd?.();
+    }, [onInteractionEnd]);
 
     // Thermal state for adaptive quality
     useThermalState();
@@ -168,13 +183,36 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
     // Cleanup WebView on unmount to prevent memory leaks
     useEffect(() => {
         return () => {
+            triggerInteractionEnd();
             if (Platform.OS !== 'web' && webViewRef.current) {
                 webViewRef.current.stopLoading();
                 // Clear any injected state
                 webViewRef.current.injectJavaScript('window.DURRA_CONFIG = null; true;');
             }
         };
-    }, []);
+    }, [triggerInteractionEnd]);
+
+    useEffect(() => {
+        if (!isActive) {
+            triggerInteractionEnd();
+        }
+    }, [isActive, triggerInteractionEnd]);
+
+    useEffect(() => {
+        if (Platform.OS !== 'web') return;
+
+        const wrapper = document.querySelector(`[data-game-wrapper-id="${game.id}"]`);
+        if (!wrapper) return;
+
+        const handlePointer = () => triggerInteractionStart();
+        wrapper.addEventListener('pointerdown', handlePointer, { passive: true });
+        wrapper.addEventListener('touchstart', handlePointer, { passive: true });
+
+        return () => {
+            wrapper.removeEventListener('pointerdown', handlePointer);
+            wrapper.removeEventListener('touchstart', handlePointer);
+        };
+    }, [game.id, isActive, triggerInteractionStart]);
 
     // Handle iOS WebView content process termination (memory pressure)
     const handleContentProcessDidTerminate = () => {
@@ -274,6 +312,10 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
         setHasError(true);
     };
 
+    const webWrapperProps = Platform.OS === 'web'
+        ? ({ 'data-game-wrapper-id': game.id } as any)
+        : undefined;
+
     // Platform-specific rendering
     if (Platform.OS === 'web') {
         return (
@@ -281,23 +323,28 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
                 <MeshBackground />
                 {isLoading && <LoadingState title={game.title} />}
                 {hasError && <ErrorState />}
-                <iframe
-                    data-game-id={game.id}
-                    src={game.game_url}
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        border: 'none',
-                        backgroundColor: 'transparent',
-                        opacity: isLoading || hasError ? 0 : 1,
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        zIndex: 1,
-                    }}
-                    onLoad={handleLoadEnd}
-                    onError={handleError}
-                />
+                <View
+                    style={styles.webFrameWrapper}
+                    {...webWrapperProps}
+                >
+                    <iframe
+                        data-game-id={game.id}
+                        src={game.game_url}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            opacity: isLoading || hasError ? 0 : 1,
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            zIndex: 1,
+                        }}
+                        onLoad={handleLoadEnd}
+                        onError={handleError}
+                    />
+                </View>
 
                 {/* Information Overlay for Web */}
                 {!isLoading && !hasError && (
@@ -338,10 +385,18 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
             {hasError && <ErrorState />}
             {/* Only render WebView for games in preload range (active + adjacent) to save battery */}
             {isPreload ? (
-                <WebView
-                    ref={webViewRef}
-                    source={{ uri: game.game_url }}
-                    style={[styles.webView, (isLoading || hasError) && styles.hidden]}
+                <View
+                    style={styles.webViewWrapper}
+                    onTouchStart={triggerInteractionStart}
+                    onStartShouldSetResponderCapture={() => {
+                        triggerInteractionStart();
+                        return false;
+                    }}
+                >
+                    <WebView
+                        ref={webViewRef}
+                        source={{ uri: game.game_url }}
+                        style={[styles.webView, (isLoading || hasError) && styles.hidden]}
                     originWhitelist={['*']}
                     scrollEnabled={false}
                     javaScriptEnabled={true}
@@ -367,6 +422,14 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
                                 console.log(`[GameCard] ${game.title} is READY (Signal)`);
                                 setIsLoading(false);
                                 setHasError(false);
+                            }
+
+                            if (action === 'FLOW_START' || action === 'START' || action === 'GAME_START') {
+                                triggerInteractionStart();
+                            }
+
+                            if (action === 'GAME_OVER' || action === 'GAME_COMPLETE' || action === 'FLOW_COMPLETE') {
+                                triggerInteractionEnd();
                             }
 
                             if (Platform.OS !== 'web') {
@@ -413,10 +476,11 @@ const GameCard = memo(({ game, isActive, isPreload, isPlaying = false, onGameEve
                         } catch { }
                     }}
                     onContentProcessDidTerminate={handleContentProcessDidTerminate}
-                    {...((Platform.OS as string) === 'web' && {
-                        'data-game-id': game.id,
-                    })}
-                />
+                        {...((Platform.OS as string) === 'web' && {
+                            'data-game-id': game.id,
+                        })}
+                    />
+                </View>
             ) : (
                 <View style={styles.placeholder} />
             )}
@@ -502,6 +566,13 @@ const styles = StyleSheet.create({
     webView: {
         flex: 1,
         backgroundColor: 'transparent',
+    },
+    webViewWrapper: {
+        flex: 1,
+    },
+    webFrameWrapper: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 1,
     },
     hidden: {
         opacity: 0,

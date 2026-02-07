@@ -58,6 +58,7 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
     const [pendingGameIndex, setPendingGameIndex] = useState<number | null>(null);
     const flatListRef = useRef<FlatList>(null);
     const scoreScale = useRef(new Animated.Value(1)).current;
+    const playingLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Navbar animation
     const navbarTranslateY = useRef(new Animated.Value(0)).current;
@@ -208,6 +209,27 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
         flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
     }, [selectedCategory, games]);
 
+    const clearPlayingLockTimeout = useCallback(() => {
+        if (playingLockTimeoutRef.current) {
+            clearTimeout(playingLockTimeoutRef.current);
+            playingLockTimeoutRef.current = null;
+        }
+    }, []);
+
+    const schedulePlayingLockRelease = useCallback((timeoutMs = 120000) => {
+        clearPlayingLockTimeout();
+        playingLockTimeoutRef.current = setTimeout(() => {
+            setIsPlaying(false);
+            playingLockTimeoutRef.current = null;
+        }, timeoutMs);
+    }, [clearPlayingLockTimeout]);
+
+    useEffect(() => {
+        return () => {
+            clearPlayingLockTimeout();
+        };
+    }, [clearPlayingLockTimeout]);
+
     const loadFeed = async () => {
         try {
             setIsLoading(true);
@@ -264,7 +286,7 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
             const newIndex = viewableItems[0].index ?? 0;
             if (newIndex !== activeIndex) {
                 setActiveIndex(newIndex);
-                setIsPlaying(false); // Reset playing state on swipe
+                clearPlayingLockTimeout();
                 setIsPlaying(false); // Reset playing state on swipe
                 if (Platform.OS !== 'web') {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -288,11 +310,13 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
 
         if (action === 'FLOW_START' || action === 'START' || action === 'GAME_START') {
             setIsPlaying(true); // Hide navbar when experience starts
+            schedulePlayingLockRelease();
         } else if (action === 'SCORE' || action === 'SCORE_UPDATE' || action === 'STATE_UPDATE') {
             if (payload?.score !== undefined) {
                 setCurrentScore(payload.score);
             }
             if (!isPlaying) setIsPlaying(true);
+            schedulePlayingLockRelease();
 
             // Subtle interaction pop
             scoreScale.setValue(1.1);
@@ -303,6 +327,7 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                 useNativeDriver: true,
             }).start();
         } else if (action === 'GAME_OVER' || action === 'GAME_COMPLETE' || action === 'FLOW_COMPLETE') {
+            clearPlayingLockTimeout();
             setShowResults(true);
             setIsPlaying(false); // Show navbar when flow completes
 
@@ -326,9 +351,10 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
         } else if (action === 'ERROR_REPORT') {
             console.warn(`[Bridge Error] ${payload?.message} `);
         }
-    }, [activeIndex, filteredGames, userId, isPlaying]);
+    }, [activeIndex, clearPlayingLockTimeout, filteredGames, userId, isPlaying, schedulePlayingLockRelease]);
 
     const handleRestart = useCallback(() => {
+        clearPlayingLockTimeout();
         setShowResults(false);
         setPercentile(null);
         setCurrentScore(0);
@@ -336,7 +362,7 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
         if (Platform.OS !== 'web') {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
-    }, []);
+    }, [clearPlayingLockTimeout]);
 
     const handleNextGame = useCallback(() => {
         if (activeIndex < filteredGames.length - 1) {
@@ -345,10 +371,11 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                 animated: true,
             });
         }
+        clearPlayingLockTimeout();
         setShowResults(false);
         setPercentile(null);
         setCurrentScore(0);
-    }, [activeIndex, filteredGames.length]);
+    }, [activeIndex, clearPlayingLockTimeout, filteredGames.length]);
 
     // Infinite loop handler - when reaching end, scroll back to start
     const handleEndReached = useCallback(() => {
@@ -376,6 +403,16 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                     isPreload={isPreload}
                     isPlaying={isActive && isPlaying}
                     onGameEvent={handleGameEvent}
+                    onInteractionStart={() => {
+                        if (!isActive) return;
+                        setIsPlaying(true);
+                        schedulePlayingLockRelease();
+                    }}
+                    onInteractionEnd={() => {
+                        if (!isActive || showResults) return;
+                        clearPlayingLockTimeout();
+                        setIsPlaying(false);
+                    }}
                 />
 
                 {/* Score display when playing */}
