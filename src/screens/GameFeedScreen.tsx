@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GameCard from '../components/GameCard';
 import { api } from '../services/api';
 import { userService } from '../services/userService';
@@ -42,6 +43,7 @@ interface GameFeedProps {
 export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
     // Dynamic dimensions for responsive layout
     const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
 
     const [games, setGames] = useState<Game[]>([]);
     const [filteredGames, setFilteredGames] = useState<Game[]>([]);
@@ -69,7 +71,10 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
     const tabWidth = useMemo(() => (SCREEN_WIDTH - spacing.md * 2) / NAV_TABS.length, [SCREEN_WIDTH]);
     const tabScales = useRef(NAV_TABS.map(() => new Animated.Value(1))).current;
 
-
+    useEffect(() => {
+        const initialTabIndex = Math.max(0, NAV_TABS.findIndex(tab => tab.id === initialTab));
+        navbarPillX.setValue(initialTabIndex * tabWidth);
+    }, [initialTab, tabWidth, navbarPillX]);
 
     // Results animation
     const resultsOpacity = useRef(new Animated.Value(0)).current;
@@ -304,11 +309,39 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
         }
     }).current;
 
+    const normalizeGameEvent = (event?: string) => {
+        const normalizedEvent = (event || '').toUpperCase();
+        const eventAliases: Record<string, string> = {
+            GAME_STARTED: 'GAME_START',
+            FLOW_STARTED: 'FLOW_START',
+            RESUME: 'LIFECYCLE_RESUME',
+        };
+
+        return eventAliases[normalizedEvent] || normalizedEvent;
+    };
+
+    const START_PLAYING_EVENTS = new Set([
+        'FLOW_START',
+        'START',
+        'GAME_START',
+        'LIFECYCLE_RESUME',
+    ]);
+
+    const STOP_PLAYING_EVENTS = new Set([
+        'GAME_OVER',
+        'GAME_COMPLETE',
+        'FLOW_COMPLETE',
+        'LIFECYCLE_PAUSE',
+        'LIFECYCLE_STOP',
+    ]);
+
     const handleGameEvent = useCallback(async (action: string, payload: any) => {
         const gameId = filteredGames[activeIndex]?.id;
         if (!gameId) return;
 
-        if (action === 'FLOW_START' || action === 'START' || action === 'GAME_START') {
+        const normalizedAction = normalizeGameEvent(action);
+
+        if (START_PLAYING_EVENTS.has(normalizedAction)) {
             setIsPlaying(true); // Hide navbar when experience starts
             schedulePlayingLockRelease();
         } else if (action === 'SCORE' || action === 'SCORE_UPDATE' || action === 'STATE_UPDATE') {
@@ -348,7 +381,7 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                     setPercentile(response.percentile);
                 }
             }
-        } else if (action === 'ERROR_REPORT') {
+        } else if (normalizedAction === 'ERROR_REPORT') {
             console.warn(`[Bridge Error] ${payload?.message} `);
         }
     }, [activeIndex, clearPlayingLockTimeout, filteredGames, userId, isPlaying, schedulePlayingLockRelease]);
@@ -421,7 +454,10 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                         styles.scoreContainer,
                         { transform: [{ scale: scoreScale }] }
                     ]}>
-                        <Text style={styles.scoreValue}>{currentScore.toLocaleString()}</Text>
+                        <BlurView intensity={45} tint="dark" style={styles.scoreBlur}>
+                            <Ionicons name="trophy" size={16} color={colors.gold} />
+                            <Text style={styles.scoreValue}>{currentScore.toLocaleString()}</Text>
+                        </BlurView>
                     </Animated.View>
                 )}
 
@@ -442,6 +478,7 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                         />
 
                         <View style={styles.resultsContent}>
+                            <Text style={styles.resultsLabel}>Run complete</Text>
                             <Text style={styles.resultScore}>{currentScore.toLocaleString()}</Text>
 
                             {percentile !== null && (
@@ -493,12 +530,15 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
             {/* Premium Discover Button */}
             {!isPlaying && (
                 <TouchableOpacity
-                    style={styles.categoryButton}
+                    style={[styles.categoryButton, { top: insets.top + spacing.sm }]}
                     onPress={() => setShowDiscover(true)}
                     activeOpacity={0.8}
                 >
-                    <Ionicons name="compass" size={24} color={colors.accent} />
-                    <Text style={styles.discoverButtonText}>Discover</Text>
+                    <BlurView intensity={55} tint="dark" style={styles.categoryButtonInner}>
+                        <Ionicons name="compass" size={18} color={colors.accentSoft} />
+                        <Text style={styles.discoverButtonText}>Discover</Text>
+                        <Ionicons name="sparkles" size={14} color={colors.gold} />
+                    </BlurView>
                 </TouchableOpacity>
             )}
 
@@ -611,7 +651,7 @@ export default function GameFeedScreen({ initialTab = 'home' }: GameFeedProps) {
                 ]}
                 pointerEvents={isPlaying ? 'none' : 'auto'}
             >
-                <BlurView intensity={80} tint="dark" style={styles.navbarBlur}>
+                <BlurView intensity={80} tint="dark" style={[styles.navbarBlur, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
                     <View style={styles.navbarContent}>
                         <Animated.View
                             style={[
@@ -683,18 +723,21 @@ const styles = StyleSheet.create({
     },
     categoryButton: {
         position: 'absolute',
-        top: 50,
         left: spacing.lg,
         zIndex: 100,
+        borderRadius: radii.full,
+        overflow: 'hidden',
+    },
+    categoryButtonInner: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.xs,
-        backgroundColor: 'rgba(0,0,0,0.5)',
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm,
         borderRadius: radii.full,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: colors.borderBright,
+        backgroundColor: colors.glassMedium,
     },
     discoverButtonText: {
         ...typography.labelLarge,
@@ -706,12 +749,19 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 60,
         alignSelf: 'center',
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        borderRadius: radii.full,
+        overflow: 'hidden',
+    },
+    scoreBlur: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.sm,
         borderRadius: radii.full,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: colors.borderBright,
+        backgroundColor: colors.glassMedium,
     },
     scoreValue: {
         ...typography.headlineLarge,
@@ -729,6 +779,12 @@ const styles = StyleSheet.create({
     resultsContent: {
         alignItems: 'center',
         gap: spacing.lg,
+    },
+    resultsLabel: {
+        ...typography.labelLarge,
+        color: colors.textSecondary,
+        textTransform: 'uppercase',
+        letterSpacing: 2,
     },
     resultScore: {
         fontSize: 72,
@@ -820,7 +876,6 @@ const styles = StyleSheet.create({
         zIndex: 100,
     },
     navbarBlur: {
-        paddingBottom: Platform.OS === 'ios' ? 24 : 16,
         paddingTop: spacing.sm,
         borderTopWidth: 1,
         borderTopColor: 'rgba(255,255,255,0.05)',
