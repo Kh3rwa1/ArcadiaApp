@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Orbit Lock | Arcadia</title>
+    <style>
+        :root {
+            --void: #000;
+            --accent: #14B8A6;
+            --text: #F9FAFB;
+        }
+
+        body {
+            margin: 0;
+            background: var(--void);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui {
+            position: absolute;
+            top: 50px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        #score {
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: -2px;
+            text-shadow: 0 0 20px var(--accent);
+        }
+
+        #level {
+            font-size: 14px;
+            color: var(--accent);
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.88);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        #overlay h1 {
+            font-size: 44px;
+            font-weight: 900;
+            margin: 0 0 6px;
+        }
+
+        #overlay p {
+            color: #9CA3AF;
+            margin-bottom: 32px;
+            letter-spacing: 2px;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: #000;
+            padding: 18px 52px;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: 3px;
+            box-shadow: 0 0 30px rgba(20, 184, 166, 0.4);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="score">0</div>
+        <div id="level">ORBIT 1</div>
+    </div>
+    <div id="overlay">
+        <h1>ORBIT LOCK</h1>
+        <p>TAP TO LOCK THE ORBITING DOTS</p>
+        <button class="btn" id="start-btn">LAUNCH</button>
+    </div>
+    <canvas id="game"></canvas>
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const levelEl = document.getElementById('level');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
+
+        let W, H, playing = false, score = 0, level = 1, frame = 0;
+        let cx, cy, orbits = [], locked = [], particles = [], lives = 3;
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; cx = W / 2; cy = H / 2; }
+        window.addEventListener('resize', resize); resize();
+
+        function post(type, action, payload = {}) {
+            const msg = JSON.stringify({ version: '1.0', type, action, payload });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
+            else window.parent?.postMessage(msg, '*');
+        }
+        post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
+
+        function buildLevel() {
+            orbits = []; locked = [];
+            const numOrbits = Math.min(2 + level, 6);
+            const baseRadius = Math.min(W, H) * 0.12;
+            for (let i = 0; i < numOrbits; i++) {
+                const radius = baseRadius + i * (Math.min(W, H) * 0.08);
+                const speed = (0.015 + Math.random() * 0.01) * (Math.random() > 0.5 ? 1 : -1) * (1 + level * 0.05);
+                const targetAngle = Math.random() * Math.PI * 2;
+                orbits.push({ radius, angle: Math.random() * Math.PI * 2, speed, targetAngle, hue: 160 + i * 30, locked: false });
+            }
+        }
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation(); playing = true; overlay.style.display = 'none';
+            score = 0; level = 1; lives = 3; particles = [];
+            buildLevel();
+            post('GAMEPLAY', 'GAME_START');
+        };
+
+        function handleTap(e) {
+            if (!playing) return;
+            // Lock the innermost unlocked orbit
+            for (let i = 0; i < orbits.length; i++) {
+                if (!orbits[i].locked) {
+                    const angleDiff = Math.abs(((orbits[i].angle - orbits[i].targetAngle + Math.PI) % (Math.PI * 2)) - Math.PI);
+                    if (angleDiff < 0.4) {
+                        // Success!
+                        orbits[i].locked = true;
+                        orbits[i].angle = orbits[i].targetAngle;
+                        score += Math.floor((0.4 - angleDiff) * 250) + level * 10;
+                        scoreEl.innerText = score;
+                        // Burst
+                        const dx = cx + Math.cos(orbits[i].targetAngle) * orbits[i].radius;
+                        const dy = cy + Math.sin(orbits[i].targetAngle) * orbits[i].radius;
+                        for (let j = 0; j < 8; j++) particles.push({ x: dx, y: dy, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, life: 1, hue: orbits[i].hue });
+                        post('GAMEPLAY', 'SCORE_UPDATE', { score, level });
+
+                        // Check if all locked
+                        if (orbits.every(o => o.locked)) {
+                            level++;
+                            levelEl.innerText = `ORBIT ${level}`;
+                            score += 200;
+                            scoreEl.innerText = score;
+                            setTimeout(() => buildLevel(), 500);
+                        }
+                    } else {
+                        // Miss
+                        lives--;
+                        if (lives <= 0) gameOver();
+                    }
+                    break;
+                }
+            }
+        }
+        window.addEventListener('touchstart', handleTap);
+        window.addEventListener('mousedown', handleTap);
+
+        function update() {
+            if (!playing) return;
+            frame++;
+            orbits.forEach(o => { if (!o.locked) o.angle += o.speed; });
+            particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life -= 0.03; if (p.life <= 0) particles.splice(i, 1); });
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+
+            // Center core
+            ctx.fillStyle = '#14B8A6'; ctx.shadowBlur = 30; ctx.shadowColor = '#14B8A6';
+            ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Orbits
+            orbits.forEach(o => {
+                // Orbit track
+                ctx.strokeStyle = `hsla(${o.hue}, 60%, 40%, 0.15)`;
+                ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.arc(cx, cy, o.radius, 0, Math.PI * 2); ctx.stroke();
+
+                // Target zone
+                const tx = cx + Math.cos(o.targetAngle) * o.radius;
+                const ty = cy + Math.sin(o.targetAngle) * o.radius;
+                ctx.fillStyle = `hsla(${o.hue}, 60%, 50%, ${o.locked ? 0.8 : 0.2})`;
+                ctx.beginPath(); ctx.arc(tx, ty, 14, 0, Math.PI * 2); ctx.fill();
+                if (!o.locked) {
+                    ctx.strokeStyle = `hsla(${o.hue}, 60%, 60%, 0.5)`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // Orbiting dot
+                const dx = cx + Math.cos(o.angle) * o.radius;
+                const dy = cy + Math.sin(o.angle) * o.radius;
+                ctx.fillStyle = o.locked ? `hsl(${o.hue}, 80%, 60%)` : '#fff';
+                ctx.shadowBlur = o.locked ? 15 : 8;
+                ctx.shadowColor = `hsl(${o.hue}, 80%, 60%)`;
+                ctx.beginPath(); ctx.arc(dx, dy, o.locked ? 10 : 8, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Connection line when locked
+                if (o.locked) {
+                    ctx.strokeStyle = `hsla(${o.hue}, 80%, 60%, 0.3)`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(dx, dy); ctx.stroke();
+                }
+            });
+
+            // Lives
+            ctx.font = '18px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+            for (let i = 0; i < lives; i++) ctx.fillText('⚡', 16 + i * 24, H - 30);
+
+            // Particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life; ctx.fillStyle = `hsl(${p.hue}, 80%, 60%)`;
+                ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            requestAnimationFrame(() => { update(); draw(); });
+        }
+
+        function gameOver() {
+            playing = false;
+            post('GAMEPLAY', 'GAME_COMPLETE', { score, level, status: 'loss' });
+            overlay.style.display = 'flex';
+            overlay.querySelector('h1').innerText = 'ORBIT LOST';
+            overlay.querySelector('p').innerText = `Orbit ${level} · Score ${score}`;
+            startBtn.innerText = 'RELAUNCH';
+        }
+
+        window.addEventListener('ArcadiaBridge', (e) => {
+            const { action } = e.detail || {};
+            if (action === 'LIFECYCLE_PAUSE') playing = false;
+            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
+        });
+
+        draw();
+    </script>
+</body>
+
+</html>

@@ -36,6 +36,16 @@ class GameSeeder extends Seeder
             ['title' => 'Lava Escape', 'slug' => 'lava-escape', 'category' => 'Endless'],
             ['title' => 'Circuit Breaker', 'slug' => 'circuit-breaker', 'category' => 'Puzzle'],
             ['title' => 'Astro Miner', 'slug' => 'astro-miner', 'category' => 'Simulation'],
+            ['title' => 'Emoji Cascade', 'slug' => 'emoji-cascade', 'category' => 'Zen'],
+            ['title' => 'Pixel Fortress', 'slug' => 'pixel-fortress', 'category' => 'Strategy'],
+            ['title' => 'Warp Tunnel', 'slug' => 'warp-tunnel', 'category' => 'Endless'],
+            ['title' => 'Color Pulse', 'slug' => 'color-pulse', 'category' => 'Rhythm'],
+            ['title' => 'Shadow Dodge', 'slug' => 'shadow-dodge', 'category' => 'Action'],
+            ['title' => 'Plasma Pong', 'slug' => 'plasma-pong', 'category' => 'Arcade'],
+            ['title' => 'Hex Grid', 'slug' => 'hex-grid', 'category' => 'Puzzle'],
+            ['title' => 'Turbo Tap', 'slug' => 'turbo-tap', 'category' => 'Arcade'],
+            ['title' => 'Orbit Lock', 'slug' => 'orbit-lock', 'category' => 'Puzzle'],
+            ['title' => 'Frost Breaker', 'slug' => 'frost-breaker', 'category' => 'Arcade'],
         ];
 
         foreach ($games as $g) {

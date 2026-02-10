@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Frost Breaker | Arcadia</title>
+    <style>
+        :root {
+            --void: #000;
+            --accent: #38BDF8;
+            --text: #F9FAFB;
+        }
+
+        body {
+            margin: 0;
+            background: var(--void);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui {
+            position: absolute;
+            top: 50px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        #score {
+            font-size: 42px;
+            font-weight: 900;
+            text-shadow: 0 0 20px var(--accent);
+        }
+
+        #lives-display {
+            font-size: 18px;
+            margin-top: 4px;
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.88);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        #overlay h1 {
+            font-size: 44px;
+            font-weight: 900;
+            margin: 0 0 6px;
+        }
+
+        #overlay p {
+            color: #9CA3AF;
+            margin-bottom: 32px;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: #000;
+            padding: 18px 52px;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: 3px;
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="score">0</div>
+        <div id="lives-display"></div>
+    </div>
+    <div id="overlay">
+        <h1>FROST BREAKER</h1>
+        <p>BREAK ALL THE ICE BLOCKS</p>
+        <button class="btn" id="start-btn">SMASH</button>
+    </div>
+    <canvas id="game"></canvas>
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const livesEl = document.getElementById('lives-display');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
+
+        let W, H, playing = false, score = 0, lives = 3, level = 1;
+        let paddleX = 0, paddleW = 100, paddleH = 14;
+        let ball = { x: 0, y: 0, vx: 0, vy: 0, r: 7 };
+        let bricks = [], particles = [];
+        const COLORS = ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; paddleX = W / 2; }
+        window.addEventListener('resize', resize); resize();
+
+        function post(type, action, payload = {}) {
+            const msg = JSON.stringify({ version: '1.0', type, action, payload });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
+            else window.parent?.postMessage(msg, '*');
+        }
+        post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
+
+        function buildBricks() {
+            bricks = [];
+            const cols = Math.floor((W - 20) / 55);
+            const rows = Math.min(3 + level, 8);
+            const bw = (W - 20) / cols;
+            const bh = 22;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    bricks.push({
+                        x: 10 + c * bw, y: 120 + r * (bh + 4), w: bw - 4, h: bh,
+                        color: COLORS[r % COLORS.length], hp: r < 2 ? 2 : 1, maxHp: r < 2 ? 2 : 1
+                    });
+                }
+            }
+        }
+
+        function resetBall() {
+            ball.x = W / 2; ball.y = H - 80;
+            ball.vx = (Math.random() - 0.5) * 4;
+            ball.vy = -(4 + level * 0.5);
+        }
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation(); playing = true; overlay.style.display = 'none';
+            score = 0; lives = 3; level = 1; particles = [];
+            buildBricks(); resetBall();
+            post('GAMEPLAY', 'GAME_START');
+        };
+
+        const handleMove = (e) => { const t = e.touches ? e.touches[0] : e; paddleX = t.clientX; };
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); }, { passive: false });
+        window.addEventListener('touchstart', handleMove);
+
+        function burst(x, y, color) {
+            for (let i = 0; i < 6; i++) particles.push({ x, y, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, life: 1, color });
+        }
+
+        function update() {
+            if (!playing) return;
+
+            ball.x += ball.vx; ball.y += ball.vy;
+
+            // Wall bounce
+            if (ball.x - ball.r < 0 || ball.x + ball.r > W) ball.vx *= -1;
+            if (ball.y - ball.r < 0) ball.vy *= -1;
+
+            // Bottom — lose life
+            if (ball.y > H + 20) {
+                lives--;
+                livesEl.innerText = '❤️'.repeat(lives);
+                if (lives <= 0) { gameOver(); return; }
+                resetBall();
+            }
+
+            // Paddle bounce
+            const py = H - 50;
+            if (ball.vy > 0 && ball.y + ball.r > py && ball.y + ball.r < py + paddleH + 8 && ball.x > paddleX - paddleW / 2 && ball.x < paddleX + paddleW / 2) {
+                ball.vy = -Math.abs(ball.vy);
+                ball.vx += (ball.x - paddleX) * 0.08;
+                burst(ball.x, py, '#38BDF8');
+            }
+
+            // Brick collision
+            bricks.forEach((b, i) => {
+                if (ball.x + ball.r > b.x && ball.x - ball.r < b.x + b.w && ball.y + ball.r > b.y && ball.y - ball.r < b.y + b.h) {
+                    b.hp--;
+                    if (b.hp <= 0) {
+                        score += 10 * level;
+                        burst(b.x + b.w / 2, b.y + b.h / 2, b.color);
+                        bricks.splice(i, 1);
+                        scoreEl.innerText = score;
+                        post('GAMEPLAY', 'SCORE_UPDATE', { score, level });
+                    }
+                    // Determine bounce direction
+                    const overlapX = Math.min(ball.x + ball.r - b.x, b.x + b.w - (ball.x - ball.r));
+                    const overlapY = Math.min(ball.y + ball.r - b.y, b.y + b.h - (ball.y - ball.r));
+                    if (overlapX < overlapY) ball.vx *= -1; else ball.vy *= -1;
+                }
+            });
+
+            // Level complete
+            if (bricks.length === 0) {
+                level++; score += 500;
+                scoreEl.innerText = score;
+                buildBricks(); resetBall();
+            }
+
+            // Clamp velocity
+            const maxV = 8 + level;
+            ball.vx = Math.max(-maxV, Math.min(maxV, ball.vx));
+            ball.vy = Math.max(-maxV, Math.min(maxV, ball.vy));
+
+            particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.vx *= 0.96; p.vy *= 0.96; p.life -= 0.03; if (p.life <= 0) particles.splice(i, 1); });
+        }
+
+        function draw() {
+            ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, W, H);
+
+            // Bricks
+            bricks.forEach(b => {
+                const alpha = b.hp / b.maxHp;
+                ctx.fillStyle = b.color;
+                ctx.globalAlpha = 0.4 + alpha * 0.6;
+                ctx.beginPath(); ctx.roundRect(b.x, b.y, b.w, b.h, 4); ctx.fill();
+                if (b.hp > 1) {
+                    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            });
+            ctx.globalAlpha = 1;
+
+            // Paddle
+            ctx.fillStyle = '#38BDF8'; ctx.shadowBlur = 15; ctx.shadowColor = '#38BDF8';
+            ctx.beginPath(); ctx.roundRect(paddleX - paddleW / 2, H - 50, paddleW, paddleH, 7); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Ball
+            ctx.fillStyle = '#fff'; ctx.shadowBlur = 15; ctx.shadowColor = '#38BDF8';
+            ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // Lives
+            livesEl.innerText = '❤️'.repeat(lives);
+
+            requestAnimationFrame(() => { update(); draw(); });
+        }
+
+        function gameOver() {
+            playing = false;
+            post('GAMEPLAY', 'GAME_COMPLETE', { score, level, status: 'loss' });
+            overlay.style.display = 'flex';
+            overlay.querySelector('h1').innerText = 'FROST MELTED';
+            overlay.querySelector('p').innerText = `Level ${level} · Score ${score}`;
+            startBtn.innerText = 'RETRY';
+        }
+
+        window.addEventListener('ArcadiaBridge', (e) => {
+            const { action } = e.detail || {};
+            if (action === 'LIFECYCLE_PAUSE') playing = false;
+            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
+        });
+
+        draw();
+    </script>
+</body>
+
+</html>

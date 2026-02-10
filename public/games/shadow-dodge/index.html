@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shadow Dodge | Arcadia</title>
+    <style>
+        :root {
+            --void: #000;
+            --accent: #EF4444;
+            --text: #F9FAFB;
+        }
+
+        body {
+            margin: 0;
+            background: var(--void);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui {
+            position: absolute;
+            top: 50px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        #score {
+            font-size: 42px;
+            font-weight: 900;
+        }
+
+        #timer {
+            font-size: 16px;
+            color: #9CA3AF;
+            margin-top: 4px;
+            letter-spacing: 4px;
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.88);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        #overlay h1 {
+            font-size: 44px;
+            font-weight: 900;
+            margin: 0 0 6px;
+        }
+
+        #overlay p {
+            color: #9CA3AF;
+            margin-bottom: 32px;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: #fff;
+            padding: 18px 52px;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: 3px;
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.4);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="score">0</div>
+        <div id="timer">00:00</div>
+    </div>
+    <div id="overlay">
+        <h1>SHADOW DODGE</h1>
+        <p>AVOID THE EXPANDING SHADOWS</p>
+        <button class="btn" id="start-btn">SURVIVE</button>
+    </div>
+    <canvas id="game"></canvas>
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const timerEl = document.getElementById('timer');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
+
+        let W, H, playing = false, score = 0, frame = 0, startTime = 0;
+        let playerX = 0.5, playerY = 0.5;
+        let shadows = [], trail = [];
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        function post(type, action, payload = {}) {
+            const msg = JSON.stringify({ version: '1.0', type, action, payload });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
+            else window.parent?.postMessage(msg, '*');
+        }
+        post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation(); playing = true; overlay.style.display = 'none';
+            score = 0; frame = 0; shadows = []; trail = []; startTime = Date.now();
+            playerX = 0.5; playerY = 0.5;
+            post('GAMEPLAY', 'GAME_START');
+        };
+
+        let targetX = 0.5, targetY = 0.5;
+        const handleMove = (e) => { const t = e.touches ? e.touches[0] : e; targetX = t.clientX / W; targetY = t.clientY / H; };
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); }, { passive: false });
+        window.addEventListener('touchstart', handleMove);
+
+        function spawnShadow() {
+            const types = ['circle', 'rect', 'line'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            const x = Math.random(), y = Math.random();
+            shadows.push({ x, y, type, phase: 0, maxPhase: 80 + Math.random() * 40, warningFrames: 30, speed: 0.8 + score / 500 });
+        }
+
+        function update() {
+            if (!playing) return;
+            frame++;
+            playerX += (targetX - playerX) * 0.12;
+            playerY += (targetY - playerY) * 0.12;
+
+            trail.push({ x: playerX * W, y: playerY * H, alpha: 1 });
+            if (trail.length > 15) trail.shift();
+            trail.forEach(t => t.alpha -= 0.06);
+
+            if (frame % Math.max(10, 35 - Math.floor(score / 30)) === 0) spawnShadow();
+
+            const elapsed = ((Date.now() - startTime) / 1000) | 0;
+            const m = String((elapsed / 60) | 0).padStart(2, '0');
+            const s = String(elapsed % 60).padStart(2, '0');
+            timerEl.innerText = `${m}:${s}`;
+
+            shadows.forEach((sh, i) => {
+                sh.phase += sh.speed;
+                if (sh.phase > sh.warningFrames) {
+                    // Check collision
+                    const px = playerX, py = playerY;
+                    const danger = sh.phase - sh.warningFrames;
+                    let hit = false;
+                    if (sh.type === 'circle') {
+                        const r = danger * 0.008;
+                        const d = Math.hypot(px - sh.x, py - sh.y);
+                        if (d < r + 0.025) hit = true;
+                    } else if (sh.type === 'rect') {
+                        const half = danger * 0.005;
+                        if (Math.abs(px - sh.x) < half + 0.02 && Math.abs(py - sh.y) < half + 0.02) hit = true;
+                    } else {
+                        const half = danger * 0.008;
+                        if (Math.abs(py - sh.y) < 0.03 && Math.abs(px - sh.x) < half) hit = true;
+                    }
+                    if (hit) { gameOver(); return; }
+                }
+                if (sh.phase > sh.maxPhase) {
+                    shadows.splice(i, 1);
+                    score += 5;
+                    scoreEl.innerText = score;
+                    if (frame % 60 === 0) post('GAMEPLAY', 'SCORE_UPDATE', { score });
+                }
+            });
+        }
+
+        function draw() {
+            ctx.fillStyle = '#050508'; ctx.fillRect(0, 0, W, H);
+
+            // Trail
+            trail.forEach(t => {
+                if (t.alpha <= 0) return;
+                ctx.globalAlpha = t.alpha * 0.4; ctx.fillStyle = '#EF4444';
+                ctx.beginPath(); ctx.arc(t.x, t.y, 6, 0, Math.PI * 2); ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // Shadows
+            shadows.forEach(sh => {
+                const danger = Math.max(0, sh.phase - sh.warningFrames);
+                const warning = sh.phase <= sh.warningFrames;
+                const alpha = warning ? 0.15 + (sh.phase / sh.warningFrames) * 0.2 : 0.4 + danger * 0.005;
+                ctx.globalAlpha = Math.min(0.8, alpha);
+
+                if (sh.type === 'circle') {
+                    const r = warning ? 10 : danger * 0.008 * Math.max(W, H);
+                    ctx.fillStyle = warning ? '#FCA5A5' : '#EF4444';
+                    ctx.beginPath(); ctx.arc(sh.x * W, sh.y * H, r, 0, Math.PI * 2); ctx.fill();
+                } else if (sh.type === 'rect') {
+                    const half = warning ? 8 : danger * 0.005 * Math.max(W, H);
+                    ctx.fillStyle = warning ? '#FCA5A5' : '#EF4444';
+                    ctx.fillRect(sh.x * W - half, sh.y * H - half, half * 2, half * 2);
+                } else {
+                    const half = warning ? 15 : danger * 0.008 * W;
+                    ctx.fillStyle = warning ? '#FCA5A5' : '#EF4444';
+                    ctx.fillRect(sh.x * W - half, sh.y * H - 4, half * 2, 8);
+                }
+            });
+            ctx.globalAlpha = 1;
+
+            // Player
+            ctx.fillStyle = '#fff'; ctx.shadowBlur = 20; ctx.shadowColor = '#fff';
+            ctx.beginPath(); ctx.arc(playerX * W, playerY * H, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(() => { update(); draw(); });
+        }
+
+        function gameOver() {
+            playing = false;
+            const elapsed = ((Date.now() - startTime) / 1000) | 0;
+            post('GAMEPLAY', 'GAME_COMPLETE', { score, survival: elapsed, status: 'loss' });
+            overlay.style.display = 'flex';
+            overlay.querySelector('h1').innerText = 'CONSUMED';
+            overlay.querySelector('p').innerText = `Survived ${elapsed}s · Score ${score}`;
+            startBtn.innerText = 'AGAIN';
+        }
+
+        window.addEventListener('ArcadiaBridge', (e) => {
+            const { action } = e.detail || {};
+            if (action === 'LIFECYCLE_PAUSE') playing = false;
+            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
+        });
+
+        draw();
+    </script>
+</body>
+
+</html>

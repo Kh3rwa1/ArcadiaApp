@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Color Pulse | Arcadia</title>
+    <style>
+        :root {
+            --void: #000;
+            --text: #F9FAFB;
+        }
+
+        body {
+            margin: 0;
+            background: var(--void);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui {
+            position: absolute;
+            top: 50px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        #score {
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: -2px;
+        }
+
+        #feedback {
+            font-size: 22px;
+            margin-top: 8px;
+            font-weight: 700;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.88);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        #overlay h1 {
+            font-size: 44px;
+            font-weight: 900;
+            margin: 0 0 6px;
+        }
+
+        #overlay p {
+            color: #9CA3AF;
+            margin-bottom: 32px;
+        }
+
+        .btn {
+            background: #EC4899;
+            color: #fff;
+            padding: 18px 52px;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: 3px;
+            box-shadow: 0 0 30px rgba(236, 72, 153, 0.4);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="score">0</div>
+        <div id="feedback"></div>
+    </div>
+    <div id="overlay">
+        <h1>COLOR PULSE</h1>
+        <p>TAP THE MATCHING COLOR ON THE BEAT</p>
+        <button class="btn" id="start-btn">PULSE</button>
+    </div>
+    <canvas id="game"></canvas>
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const feedbackEl = document.getElementById('feedback');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
+
+        let W, H, playing = false, score = 0, frame = 0, streak = 0;
+        const COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B'];
+        let targetColor = 0, pulsePhase = 0, pulseSpeed = 0.02;
+        let buttons = [], rings = [];
+
+        function resize() {
+            W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
+            const bw = W / 4;
+            buttons = COLORS.map((c, i) => ({ color: c, x: i * bw, y: H - 100, w: bw, h: 100 }));
+        }
+        window.addEventListener('resize', resize); resize();
+
+        function post(type, action, payload = {}) {
+            const msg = JSON.stringify({ version: '1.0', type, action, payload });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
+            else window.parent?.postMessage(msg, '*');
+        }
+        post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation(); playing = true; overlay.style.display = 'none';
+            score = 0; streak = 0; frame = 0; pulseSpeed = 0.02; nextTarget();
+            post('GAMEPLAY', 'GAME_START');
+        };
+
+        function nextTarget() { targetColor = Math.floor(Math.random() * COLORS.length); pulsePhase = 0; }
+
+        function showFeedback(text, color) {
+            feedbackEl.innerText = text; feedbackEl.style.color = color; feedbackEl.style.opacity = 1;
+            setTimeout(() => feedbackEl.style.opacity = 0, 600);
+        }
+
+        function handleTap(e) {
+            if (!playing) return;
+            const t = e.touches ? e.touches[0] : e;
+            const tx = t.clientX, ty = t.clientY;
+            buttons.forEach((b, i) => {
+                if (tx >= b.x && tx <= b.x + b.w && ty >= b.y && ty <= b.y + b.h) {
+                    if (i === targetColor) {
+                        const timing = Math.abs(Math.sin(pulsePhase));
+                        let pts = 0;
+                        if (timing > 0.85) { pts = 100; showFeedback('PERFECT!', COLORS[i]); }
+                        else if (timing > 0.5) { pts = 50; showFeedback('GOOD', COLORS[i]); }
+                        else { pts = 20; showFeedback('OK', '#9CA3AF'); }
+                        streak++; score += pts + streak * 5;
+                        scoreEl.innerText = score;
+                        rings.push({ x: W / 2, y: H / 2, r: 30, maxR: 200, color: COLORS[i], alpha: 1 });
+                        post('GAMEPLAY', 'SCORE_UPDATE', { score, streak });
+                        if (score > 500 && pulseSpeed < 0.05) pulseSpeed += 0.002;
+                        nextTarget();
+                    } else {
+                        streak = 0;
+                        showFeedback('MISS', '#EF4444');
+                        score = Math.max(0, score - 30);
+                        scoreEl.innerText = score;
+                    }
+                }
+            });
+        }
+        window.addEventListener('touchstart', handleTap);
+        window.addEventListener('mousedown', handleTap);
+
+        function update() {
+            if (!playing) return;
+            frame++;
+            pulsePhase += pulseSpeed;
+            rings.forEach((r, i) => { r.r += 4; r.alpha -= 0.02; if (r.alpha <= 0) rings.splice(i, 1); });
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+
+            // Center pulsing circle with target color
+            const pulse = Math.abs(Math.sin(pulsePhase));
+            const radius = 60 + pulse * 40;
+            ctx.fillStyle = COLORS[targetColor];
+            ctx.globalAlpha = 0.2 + pulse * 0.6;
+            ctx.shadowBlur = 40 + pulse * 30; ctx.shadowColor = COLORS[targetColor];
+            ctx.beginPath(); ctx.arc(W / 2, H / 2 - 40, radius, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
+            // Expanding rings
+            rings.forEach(r => {
+                ctx.globalAlpha = r.alpha; ctx.strokeStyle = r.color; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(r.x, r.y - 40, r.r, 0, Math.PI * 2); ctx.stroke();
+            });
+            ctx.globalAlpha = 1;
+
+            // Streak badge
+            if (streak > 1) {
+                ctx.fillStyle = '#F59E0B'; ctx.font = '16px Inter, sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(`🔥 ${streak}x`, W / 2, H / 2 + 60);
+            }
+
+            // Bottom buttons
+            buttons.forEach((b, i) => {
+                ctx.fillStyle = i === targetColor ? b.color : `${b.color}44`;
+                ctx.fillRect(b.x + 4, b.y + 4, b.w - 8, b.h - 8);
+                if (i === targetColor) {
+                    ctx.shadowBlur = 20; ctx.shadowColor = b.color;
+                    ctx.fillRect(b.x + 4, b.y + 4, b.w - 8, b.h - 8);
+                    ctx.shadowBlur = 0;
+                }
+            });
+
+            requestAnimationFrame(() => { update(); draw(); });
+        }
+
+        window.addEventListener('ArcadiaBridge', (e) => {
+            const { action } = e.detail || {};
+            if (action === 'LIFECYCLE_PAUSE') playing = false;
+            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
+        });
+
+        draw();
+    </script>
+</body>
+
+</html>

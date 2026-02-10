@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Turbo Tap | Arcadia</title>
+    <style>
+        :root {
+            --void: #000;
+            --accent: #F97316;
+            --text: #F9FAFB;
+        }
+
+        body {
+            margin: 0;
+            background: var(--void);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui {
+            position: absolute;
+            top: 40px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        #score {
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: -2px;
+            text-shadow: 0 0 20px var(--accent);
+        }
+
+        #time-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 4px;
+            background: var(--accent);
+            transition: width 0.1s linear;
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.88);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        #overlay h1 {
+            font-size: 44px;
+            font-weight: 900;
+            margin: 0 0 6px;
+            letter-spacing: -1px;
+        }
+
+        #overlay p {
+            color: #9CA3AF;
+            margin-bottom: 32px;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: #000;
+            padding: 18px 52px;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: 3px;
+            box-shadow: 0 0 30px rgba(249, 115, 22, 0.4);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="score">0</div>
+    </div>
+    <div id="time-bar" style="width: 100%"></div>
+    <div id="overlay">
+        <h1>TURBO TAP</h1>
+        <p>TAP THE TARGETS BEFORE TIME RUNS OUT</p>
+        <button class="btn" id="start-btn">GO!</button>
+    </div>
+    <canvas id="game"></canvas>
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const timeBar = document.getElementById('time-bar');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
+
+        let W, H, playing = false, score = 0, frame = 0;
+        let timeLeft = 30, maxTime = 30, startTime = 0;
+        let targets = [], pops = [], combo = 0;
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        function post(type, action, payload = {}) {
+            const msg = JSON.stringify({ version: '1.0', type, action, payload });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
+            else window.parent?.postMessage(msg, '*');
+        }
+        post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation(); playing = true; overlay.style.display = 'none';
+            score = 0; combo = 0; targets = []; pops = [];
+            maxTime = 30; timeLeft = maxTime; startTime = Date.now();
+            spawnTarget(); spawnTarget(); spawnTarget();
+            post('GAMEPLAY', 'GAME_START');
+        };
+
+        function spawnTarget() {
+            const margin = 60;
+            const r = 20 + Math.random() * 20;
+            const x = margin + Math.random() * (W - margin * 2);
+            const y = margin + 100 + Math.random() * (H - margin * 2 - 160);
+            const hue = Math.random() * 360;
+            targets.push({ x, y, r, hue, life: 3 + Math.random() * 2, born: Date.now(), pulse: 0 });
+        }
+
+        function handleTap(e) {
+            if (!playing) return;
+            const t = e.touches ? e.touches[0] : e;
+            const mx = t.clientX, my = t.clientY;
+            let hit = false;
+
+            for (let i = targets.length - 1; i >= 0; i--) {
+                const tgt = targets[i];
+                if (Math.hypot(mx - tgt.x, my - tgt.y) < tgt.r + 10) {
+                    hit = true; combo++;
+                    const lifeRatio = (Date.now() - tgt.born) / (tgt.life * 1000);
+                    const speedBonus = Math.max(1, Math.floor((1 - lifeRatio) * 50));
+                    score += 10 + speedBonus + combo * 3;
+                    timeLeft = Math.min(maxTime, timeLeft + 0.5);
+
+                    // Pop effect
+                    for (let j = 0; j < 6; j++) {
+                        pops.push({ x: tgt.x, y: tgt.y, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, life: 1, hue: tgt.hue });
+                    }
+
+                    targets.splice(i, 1);
+                    spawnTarget();
+                    if (Math.random() < 0.3) spawnTarget();
+
+                    scoreEl.innerText = score;
+                    post('GAMEPLAY', 'SCORE_UPDATE', { score, combo });
+                    break;
+                }
+            }
+
+            if (!hit) { combo = 0; timeLeft = Math.max(0, timeLeft - 1); }
+        }
+        window.addEventListener('touchstart', handleTap);
+        window.addEventListener('mousedown', handleTap);
+
+        function update() {
+            if (!playing) return;
+            frame++;
+            timeLeft = maxTime - (Date.now() - startTime) / 1000;
+            // Add time back from hits (already added above, just track min)
+            const elapsed = (Date.now() - startTime) / 1000;
+            timeBar.style.width = Math.max(0, (timeLeft / maxTime) * 100) + '%';
+
+            if (timeLeft <= 0) { gameOver(); return; }
+
+            // Remove expired targets
+            targets.forEach((t, i) => {
+                const age = (Date.now() - t.born) / 1000;
+                if (age > t.life) {
+                    targets.splice(i, 1); combo = 0;
+                    timeLeft = Math.max(0, timeLeft - 0.5);
+                    spawnTarget();
+                }
+                t.pulse = Math.sin(age * 4) * 0.15;
+            });
+
+            pops.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life -= 0.04; if (p.life <= 0) pops.splice(i, 1); });
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+
+            // Targets
+            targets.forEach(t => {
+                const age = (Date.now() - t.born) / 1000;
+                const lifeRatio = 1 - age / t.life;
+                const r = t.r * (1 + t.pulse);
+
+                // Outer ring (shrinking)
+                ctx.strokeStyle = `hsla(${t.hue}, 80%, 60%, 0.3)`;
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(t.x, t.y, r + lifeRatio * 20, 0, Math.PI * 2); ctx.stroke();
+
+                // Main circle
+                ctx.fillStyle = `hsla(${t.hue}, 80%, 60%, 0.8)`;
+                ctx.shadowBlur = 20; ctx.shadowColor = `hsla(${t.hue}, 80%, 60%, 0.6)`;
+                ctx.beginPath(); ctx.arc(t.x, t.y, r, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Inner highlight
+                ctx.fillStyle = `hsla(${t.hue}, 90%, 80%, 0.5)`;
+                ctx.beginPath(); ctx.arc(t.x - r * 0.2, t.y - r * 0.2, r * 0.3, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // Pop particles
+            pops.forEach(p => {
+                ctx.globalAlpha = p.life; ctx.fillStyle = `hsl(${p.hue}, 80%, 60%)`;
+                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // Combo display
+            if (combo > 2) {
+                ctx.fillStyle = '#F97316'; ctx.font = 'bold 24px Inter, sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(`${combo}x COMBO`, W / 2, H - 130);
+            }
+
+            requestAnimationFrame(() => { update(); draw(); });
+        }
+
+        function gameOver() {
+            playing = false;
+            post('GAMEPLAY', 'GAME_COMPLETE', { score, status: 'complete' });
+            overlay.style.display = 'flex';
+            overlay.querySelector('h1').innerText = 'TIME UP!';
+            overlay.querySelector('p').innerText = `Score: ${score} · Best combo: ${combo}x`;
+            startBtn.innerText = 'RETRY';
+        }
+
+        window.addEventListener('ArcadiaBridge', (e) => {
+            const { action } = e.detail || {};
+            if (action === 'LIFECYCLE_PAUSE') playing = false;
+            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
+        });
+
+        draw();
+    </script>
+</body>
+
+</html>

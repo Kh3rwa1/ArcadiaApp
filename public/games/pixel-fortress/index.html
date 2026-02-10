@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Fortress | Arcadia</title>
+    <style>
+        :root {
+            --void: #000;
+            --accent: #10B981;
+            --text: #F9FAFB;
+        }
+
+        body {
+            margin: 0;
+            background: var(--void);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui {
+            position: absolute;
+            top: 50px;
+            left: 20px;
+            pointer-events: none;
+        }
+
+        #score {
+            font-size: 32px;
+            font-weight: 900;
+        }
+
+        #wave {
+            font-size: 14px;
+            color: var(--accent);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        #hp-bar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 120px;
+            height: 8px;
+            background: #1F2937;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        #hp-fill {
+            width: 100%;
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s;
+            border-radius: 4px;
+        }
+
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.88);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        #overlay h1 {
+            font-size: 42px;
+            font-weight: 900;
+            margin: 0 0 4px;
+        }
+
+        #overlay p {
+            color: #9CA3AF;
+            margin-bottom: 32px;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: #000;
+            padding: 18px 52px;
+            border-radius: 14px;
+            font-weight: 800;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            letter-spacing: 2px;
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.4);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="wave">WAVE 1</div>
+        <div id="score">0</div>
+    </div>
+    <div id="hp-bar">
+        <div id="hp-fill"></div>
+    </div>
+    <div id="overlay">
+        <h1>PIXEL FORTRESS</h1>
+        <p>Tap to place turrets · Defend the core</p>
+        <button class="btn" id="start-btn">DEFEND</button>
+    </div>
+    <canvas id="game"></canvas>
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const waveEl = document.getElementById('wave');
+        const hpFill = document.getElementById('hp-fill');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
+
+        let W, H, playing = false, score = 0, wave = 1, hp = 100, frame = 0;
+        let turrets = [], enemies = [], bullets = [], particles = [];
+        const corePos = { x: 0, y: 0 };
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; corePos.x = W / 2; corePos.y = H / 2; }
+        window.addEventListener('resize', resize); resize();
+
+        function post(type, action, payload = {}) {
+            const msg = JSON.stringify({ version: '1.0', type, action, payload });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
+            else window.parent?.postMessage(msg, '*');
+        }
+        post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
+
+        startBtn.onclick = (e) => { e.stopPropagation(); playing = true; overlay.style.display = 'none'; score = 0; wave = 1; hp = 100; turrets = []; enemies = []; bullets = []; particles = []; post('GAMEPLAY', 'GAME_START'); };
+
+        function placeTurret(e) {
+            if (!playing) return;
+            const t = e.touches ? e.touches[0] : e;
+            const x = t.clientX, y = t.clientY;
+            if (turrets.length < 8 + wave) {
+                turrets.push({ x, y, cooldown: 0, range: 120 + wave * 5 });
+            }
+        }
+        window.addEventListener('touchstart', placeTurret);
+        window.addEventListener('mousedown', placeTurret);
+
+        function spawnEnemy() {
+            const side = Math.random() * 4 | 0;
+            let x, y;
+            if (side === 0) { x = Math.random() * W; y = -20; }
+            else if (side === 1) { x = W + 20; y = Math.random() * H; }
+            else if (side === 2) { x = Math.random() * W; y = H + 20; }
+            else { x = -20; y = Math.random() * H; }
+            enemies.push({ x, y, hp: 2 + wave, speed: 1 + wave * 0.15 + Math.random() * 0.5, maxHp: 2 + wave });
+        }
+
+        function update() {
+            if (!playing) return;
+            frame++;
+
+            if (frame % Math.max(20, 60 - wave * 5) === 0) spawnEnemy();
+            if (enemies.length === 0 && frame > 120 * wave) { wave++; waveEl.innerText = `WAVE ${wave}`; }
+
+            // Turrets shoot
+            turrets.forEach(t => {
+                t.cooldown--;
+                if (t.cooldown <= 0) {
+                    let closest = null, closestDist = t.range;
+                    enemies.forEach(e => {
+                        const d = Math.hypot(e.x - t.x, e.y - t.y);
+                        if (d < closestDist) { closestDist = d; closest = e; }
+                    });
+                    if (closest) {
+                        const angle = Math.atan2(closest.y - t.y, closest.x - t.x);
+                        bullets.push({ x: t.x, y: t.y, vx: Math.cos(angle) * 6, vy: Math.sin(angle) * 6, life: 40 });
+                        t.cooldown = 20;
+                    }
+                }
+            });
+
+            // Bullets
+            bullets.forEach((b, i) => {
+                b.x += b.vx; b.y += b.vy; b.life--;
+                if (b.life <= 0) { bullets.splice(i, 1); return; }
+                enemies.forEach((e, j) => {
+                    if (Math.hypot(e.x - b.x, e.y - b.y) < 15) {
+                        e.hp--;
+                        bullets.splice(i, 1);
+                        if (e.hp <= 0) {
+                            score += 10 * wave;
+                            scoreEl.innerText = score;
+                            for (let k = 0; k < 5; k++) particles.push({ x: e.x, y: e.y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, life: 1, color: '#10B981' });
+                            enemies.splice(j, 1);
+                            post('GAMEPLAY', 'SCORE_UPDATE', { score, wave });
+                        }
+                    }
+                });
+            });
+
+            // Enemies move toward core
+            enemies.forEach((e, i) => {
+                const angle = Math.atan2(corePos.y - e.y, corePos.x - e.x);
+                e.x += Math.cos(angle) * e.speed;
+                e.y += Math.sin(angle) * e.speed;
+                if (Math.hypot(corePos.x - e.x, corePos.y - e.y) < 30) {
+                    hp -= 10; hpFill.style.width = hp + '%';
+                    enemies.splice(i, 1);
+                    if (hp <= 0) gameOver();
+                }
+            });
+
+            particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life -= 0.03; if (p.life <= 0) particles.splice(i, 1); });
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(16,185,129,0.04)';
+            for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+            for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+            // Core
+            ctx.fillStyle = '#10B981'; ctx.shadowBlur = 30; ctx.shadowColor = '#10B981';
+            ctx.beginPath(); ctx.arc(corePos.x, corePos.y, 18, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Turrets
+            turrets.forEach(t => {
+                ctx.fillStyle = '#3B82F6'; ctx.shadowBlur = 10; ctx.shadowColor = '#3B82F6';
+                ctx.fillRect(t.x - 8, t.y - 8, 16, 16);
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = 'rgba(59,130,246,0.1)';
+                ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); ctx.stroke();
+            });
+
+            // Enemies
+            enemies.forEach(e => {
+                const ratio = e.hp / e.maxHp;
+                ctx.fillStyle = `hsl(0, 80%, ${40 + ratio * 20}%)`;
+                ctx.beginPath(); ctx.arc(e.x, e.y, 10, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // Bullets
+            ctx.fillStyle = '#F59E0B';
+            bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI * 2); ctx.fill(); });
+
+            // Particles
+            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill(); });
+            ctx.globalAlpha = 1;
+
+            requestAnimationFrame(() => { update(); draw(); });
+        }
+
+        function gameOver() {
+            playing = false;
+            post('GAMEPLAY', 'GAME_COMPLETE', { score, wave, status: 'loss' });
+            overlay.style.display = 'flex';
+            overlay.querySelector('h1').innerText = 'FORTRESS FALLEN';
+            overlay.querySelector('p').innerText = `Wave ${wave} · Score ${score}`;
+            startBtn.innerText = 'REBUILD';
+        }
+
+        window.addEventListener('ArcadiaBridge', (e) => {
+            const { action } = e.detail || {};
+            if (action === 'LIFECYCLE_PAUSE') playing = false;
+            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
+        });
+
+        draw();
+    </script>
+</body>
+
+</html>
