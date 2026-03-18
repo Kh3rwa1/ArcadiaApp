@@ -6,228 +6,288 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Warp Tunnel | Arcadia</title>
     <style>
-        :root {
-            --void: #000;
-            --accent: #8B5CF6;
-            --text: #F9FAFB;
-        }
-
-        body {
-            margin: 0;
-            background: var(--void);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            touch-action: none;
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        #ui {
-            position: absolute;
-            top: 50px;
-            width: 100%;
-            text-align: center;
-            pointer-events: none;
-        }
-
-        #score {
-            font-size: 48px;
-            font-weight: 900;
-            letter-spacing: -2px;
-            text-shadow: 0 0 30px var(--accent);
-        }
-
-        #overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-
-        #overlay h1 {
-            font-size: 44px;
-            font-weight: 900;
-            margin: 0 0 6px;
-            letter-spacing: -2px;
-        }
-
-        #overlay p {
-            color: #9CA3AF;
-            margin-bottom: 32px;
-            letter-spacing: 2px;
-        }
-
-        .btn {
-            background: var(--accent);
-            color: #fff;
-            padding: 18px 52px;
-            border-radius: 16px;
-            font-weight: 800;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-            letter-spacing: 3px;
-            box-shadow: 0 0 30px rgba(139, 92, 246, 0.5);
-        }
+        :root { --void: #000; --accent: #06B6D4; --accent2: #8B5CF6; }
+        body { margin: 0; background: #000; color: #fff; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; touch-action: none; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #ui { position: absolute; top: 50px; width: 100%; text-align: center; pointer-events: none; }
+        #score { font-size: 42px; font-weight: 900; text-shadow: 0 0 25px var(--accent); }
+        #speed-ind { font-size: 12px; color: #6B7280; letter-spacing: 3px; margin-top: 2px; }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(8px); }
+        #overlay h1 { font-size: 42px; font-weight: 900; margin: 0 0 6px; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #overlay p { color: #9CA3AF; margin-bottom: 32px; letter-spacing: 2px; }
+        .btn { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; padding: 18px 52px; border-radius: 14px; font-weight: 800; border: none; cursor: pointer; letter-spacing: 3px; box-shadow: 0 0 30px rgba(6,182,212,0.4); }
+        .btn:active { transform: scale(0.96); }
+        #stats-box { text-align: center; margin-bottom: 20px; display: none; }
+        #stats-box .big { font-size: 56px; font-weight: 900; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #stats-box .sm { font-size: 13px; color: #6B7280; margin: 3px 0; }
     </style>
 </head>
 
 <body>
     <div id="ui">
         <div id="score">0</div>
+        <div id="speed-ind">WARP SPEED</div>
     </div>
     <div id="overlay">
-        <h1>WARP TUNNEL</h1>
-        <p>SWIPE TO NAVIGATE THE VOID</p>
-        <button class="btn" id="start-btn">WARP</button>
+        <h1 id="title">WARP TUNNEL</h1>
+        <p id="subtitle">TILT TO STEER · DODGE THE WALLS</p>
+        <div id="stats-box">
+            <div class="big" id="final-score">0</div>
+            <div class="sm" id="stat-dist">Distance: 0</div>
+            <div class="sm" id="stat-rings">Rings passed: 0</div>
+            <div class="sm" id="stat-close">Close calls: 0</div>
+        </div>
+        <button class="btn" id="start-btn">ENGAGE WARP</button>
     </div>
     <canvas id="game"></canvas>
+
+    <script src="../_template/arcadia-aaa-pack.js"></script>
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
         const scoreEl = document.getElementById('score');
+        const speedInd = document.getElementById('speed-ind');
         const overlay = document.getElementById('overlay');
         const startBtn = document.getElementById('start-btn');
 
-        let W, H, playing = false, score = 0, frame = 0;
-        let playerX = 0.5, speed = 2;
-        let rings = [], stars = [];
+        let W, H, cX, cY, playing = false, frame = 0, score = 0;
+        let playerX = 0, playerY = 0, targetX = 0, targetY = 0;
+        let rings = [], tunnelStars = [], particles = [], speedLines = [];
+        let speed = 2, ringsPassed = 0, closeCalls = 0;
+        let shakeX = 0, shakeY = 0, shakeDur = 0, hueShift = 180;
 
-        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; cX = W / 2; cY = H / 2; }
         window.addEventListener('resize', resize); resize();
 
-        function post(type, action, payload = {}) {
-            const msg = JSON.stringify({ version: '1.0', type, action, payload });
-            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
-            else window.parent?.postMessage(msg, '*');
+        function post(t, a, p = {}) {
+            const msg = JSON.stringify({ version: '1.0', type: t, action: a, payload: p });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg); else window.parent?.postMessage(msg, '*');
         }
         post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
 
-        // Stars background
-        for (let i = 0; i < 100; i++) stars.push({ x: Math.random() * 1, y: Math.random() * 1, z: Math.random() * 2 + 0.5 });
+        function shake(i, d) { shakeDur = d; shakeX = (Math.random() - 0.5) * i; shakeY = (Math.random() - 0.5) * i; }
+        function burst(x, y, color, count = 15) {
+            for (let i = 0; i < count; i++) {
+                const a = (Math.PI * 2 / count) * i; const v = 2 + Math.random() * 5;
+                particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, decay: 0.025, color, size: 2 + Math.random() * 3 });
+            }
+        }
 
-        startBtn.onclick = (e) => {
-            e.stopPropagation(); playing = true; overlay.style.display = 'none';
-            score = 0; frame = 0; rings = []; speed = 2; playerX = 0.5;
-            post('GAMEPLAY', 'GAME_START');
+        function initStars() {
+            tunnelStars = [];
+            for (let i = 0; i < 60; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const dist = 0.3 + Math.random() * 0.7;
+                tunnelStars.push({ angle: a, dist, z: Math.random() * 5, speed: 0.02 + Math.random() * 0.03, size: 1 + Math.random() * 1.5 });
+            }
+        }
+
+        function spawnRing() {
+            const gap = 0.25 + Math.random() * 0.15 - score / 4000;
+            const gapFinal = Math.max(0.12, gap);
+            const gapAngle = Math.random() * Math.PI * 2;
+            rings.push({ z: 20, gapAngle, gapSize: gapFinal, hue: (hueShift + Math.random() * 60) % 360, passed: false, nearMissed: false });
+        }
+
+        const handleMove = (e) => {
+            const t = e.touches ? e.touches[0] : e;
+            targetX = (t.clientX / W - 0.5) * 2;
+            targetY = (t.clientY / H - 0.5) * 2;
         };
-
-        let targetX = 0.5;
-        const handleMove = (e) => { const t = e.touches ? e.touches[0] : e; targetX = t.clientX / W; };
         window.addEventListener('mousemove', handleMove);
         window.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); }, { passive: false });
         window.addEventListener('touchstart', handleMove);
 
-        function spawnRing() {
-            const gapCenter = Math.random() * 0.6 + 0.2;
-            const gapSize = Math.max(0.18, 0.35 - score / 2000);
-            rings.push({ z: 20, gapCenter, gapSize, hue: Math.random() * 360, passed: false });
-        }
+        startBtn.onclick = (e) => {
+            e.stopPropagation(); playing = true; overlay.style.display = 'none';
+            document.getElementById('stats-box').style.display = 'none';
+            score = 0; speed = 2; ringsPassed = 0; closeCalls = 0; frame = 0;
+            playerX = 0; playerY = 0; targetX = 0; targetY = 0;
+            rings = []; particles = []; speedLines = []; hueShift = 180;
+            initStars(); post('GAMEPLAY', 'GAME_START');
+        };
 
         function update() {
             if (!playing) return;
             frame++;
-            speed = 2 + score / 200;
-            playerX += (targetX - playerX) * 0.1;
+            speed = 2 + score / 400;
+            hueShift = (180 + score * 0.5) % 360;
 
-            if (frame % Math.max(15, 40 - Math.floor(speed)) === 0) spawnRing();
+            playerX += (targetX - playerX) * 0.08;
+            playerY += (targetY - playerY) * 0.08;
 
-            rings.forEach((r, i) => {
-                r.z -= speed * 0.05;
+            // Speed label
+            const speedNum = Math.floor(speed * 100);
+            speedInd.textContent = `WARP ${speedNum}`;
+
+            // Spawn rings
+            if (frame % Math.max(15, 40 - Math.floor(speed * 2)) === 0) spawnRing();
+
+            // Move rings
+            for (let i = rings.length - 1; i >= 0; i--) {
+                const r = rings[i];
+                r.z -= speed * 0.08;
+
                 if (r.z < 0.5 && !r.passed) {
-                    r.passed = true;
-                    const left = r.gapCenter - r.gapSize / 2;
-                    const right = r.gapCenter + r.gapSize / 2;
-                    if (playerX < left || playerX > right) {
+                    // Check collision - player angle vs ring gap
+                    const playerAngle = Math.atan2(playerY, playerX);
+                    let angleDiff = Math.abs(playerAngle - r.gapAngle);
+                    if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+                    const playerDist = Math.sqrt(playerX * playerX + playerY * playerY);
+
+                    if (playerDist > 0.3 && angleDiff > r.gapSize * Math.PI) {
                         gameOver(); return;
                     }
-                    score += 10;
-                    scoreEl.innerText = score;
-                    post('GAMEPLAY', 'SCORE_UPDATE', { score });
-                }
-                if (r.z < 0) rings.splice(i, 1);
-            });
 
-            stars.forEach(s => { s.y += s.z * 0.003; if (s.y > 1) s.y = 0; });
+                    // Near miss
+                    if (!r.nearMissed && playerDist > 0.2 && angleDiff < r.gapSize * Math.PI * 1.5) {
+                        r.nearMissed = true; closeCalls++; score += 5;
+                    }
+
+                    r.passed = true; ringsPassed++; score += 10;
+                    scoreEl.textContent = score;
+                    if (score % 50 === 0) post('GAMEPLAY', 'SCORE_UPDATE', { score });
+                }
+
+                if (r.z < 0.1) rings.splice(i, 1);
+            }
+
+            // Speed lines
+            if (speed > 3 && frame % 2 === 0) {
+                const a = Math.random() * Math.PI * 2;
+                const d = 0.8 + Math.random() * 0.2;
+                speedLines.push({ angle: a, dist: d, z: 3, alpha: 0.3 + (speed - 3) * 0.1 });
+            }
+            for (let i = speedLines.length - 1; i >= 0; i--) {
+                speedLines[i].z -= speed * 0.12;
+                speedLines[i].alpha -= 0.015;
+                if (speedLines[i].z < 0.1 || speedLines[i].alpha <= 0) speedLines.splice(i, 1);
+            }
+
+            // Stars
+            tunnelStars.forEach(s => { s.z -= speed * 0.06; if (s.z < 0.1) s.z += 5; });
+
+            // Shake / particles
+            if (shakeDur > 0) { shakeDur--; shakeX *= 0.85; shakeY *= 0.85; } else { shakeX = shakeY = 0; }
+            for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= p.decay; if (p.life <= 0) particles.splice(i, 1); }
+        }
+
+        function project(x, y, z) {
+            const scale = 300 / (z + 0.5);
+            return { x: cX + x * scale, y: cY + y * scale, s: scale };
         }
 
         function draw() {
-            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+            ctx.save(); ctx.translate(shakeX, shakeY);
+            ctx.fillStyle = '#000'; ctx.fillRect(-5, -5, W + 10, H + 10);
 
-            // Stars
-            stars.forEach(s => {
-                const sx = (s.x - 0.5) * W * 2 / s.z + W / 2;
-                const sy = s.y * H;
-                ctx.fillStyle = `rgba(255,255,255,${0.3 / s.z})`;
-                ctx.fillRect(sx, sy, 1.5, 1.5);
-            });
+            // Center glow
+            const bgGrad = ctx.createRadialGradient(cX, cY, 0, cX, cY, W * 0.4);
+            bgGrad.addColorStop(0, `hsla(${hueShift}, 50%, 12%, 1)`);
+            bgGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
 
-            // Rings
-            rings.forEach(r => {
-                if (r.z <= 0) return;
-                const scale = 1 / r.z;
-                const cx = W / 2, cy = H / 2;
-                const radius = W * 0.5 * scale;
-                if (radius > W * 3) return;
+            // Tunnel stars
+            tunnelStars.forEach(s => {
+                const x = Math.cos(s.angle) * s.dist;
+                const y = Math.sin(s.angle) * s.dist;
+                const p = project(x, y, s.z);
+                ctx.globalAlpha = Math.min(0.6, 1 / s.z);
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(p.x, p.y, s.size * p.s * 0.005, 0, Math.PI * 2); ctx.fill();
+            }); ctx.globalAlpha = 1;
 
-                const gapStart = r.gapCenter - r.gapSize / 2;
-                const gapEnd = r.gapCenter + r.gapSize / 2;
+            // Speed lines
+            speedLines.forEach(sl => {
+                const x = Math.cos(sl.angle) * sl.dist;
+                const y = Math.sin(sl.angle) * sl.dist;
+                const p1 = project(x, y, sl.z);
+                const p2 = project(x, y, sl.z + 0.5);
+                ctx.globalAlpha = Math.min(0.4, sl.alpha);
+                ctx.strokeStyle = `hsl(${hueShift}, 70%, 70%)`;
+                ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+            }); ctx.globalAlpha = 1;
 
-                ctx.strokeStyle = `hsla(${r.hue}, 80%, 60%, ${Math.min(1, scale * 0.3)})`;
-                ctx.lineWidth = Math.max(2, 6 * scale);
+            // Rings (back to front)
+            const sorted = [...rings].sort((a, b) => b.z - a.z);
+            sorted.forEach(r => {
+                const segments = 60;
+                const ringR = 0.9;
+                ctx.strokeStyle = `hsla(${r.hue}, 70%, 55%, ${Math.min(0.8, 2 / r.z)})`;
+                ctx.lineWidth = Math.max(1, 60 / r.z);
+                ctx.shadowBlur = Math.max(0, 20 / r.z);
+                ctx.shadowColor = `hsl(${r.hue}, 70%, 55%)`;
 
-                // Left wall
                 ctx.beginPath();
-                ctx.moveTo(cx - radius, cy - radius);
-                ctx.lineTo(cx + radius, cy - radius);
-                ctx.lineTo(cx + radius, cy + radius);
-                ctx.lineTo(cx - radius, cy + radius);
-                ctx.closePath();
+                for (let i = 0; i <= segments; i++) {
+                    const a = (i / segments) * Math.PI * 2;
+                    // Check if this segment is in the gap
+                    let diff = Math.abs(a - r.gapAngle);
+                    if (diff > Math.PI) diff = Math.PI * 2 - diff;
+                    if (diff < r.gapSize * Math.PI) {
+                        // Gap - draw a faint indicator
+                        ctx.stroke(); ctx.beginPath();
+                        continue;
+                    }
+                    const x = Math.cos(a) * ringR;
+                    const y = Math.sin(a) * ringR;
+                    const p = project(x, y, r.z);
+                    if (i === 0 || diff < r.gapSize * Math.PI + 0.15) ctx.moveTo(p.x, p.y);
+                    else ctx.lineTo(p.x, p.y);
+                }
                 ctx.stroke();
+                ctx.shadowBlur = 0;
 
-                // Gap indicator
-                const gx = cx - radius + gapStart * radius * 2;
-                const gw = r.gapSize * radius * 2;
-                ctx.fillStyle = `hsla(${r.hue}, 80%, 60%, ${Math.min(0.15, scale * 0.05)})`;
-                ctx.fillRect(gx, cy - radius, gw, radius * 2);
+                // Gap indicator glow
+                const gx = Math.cos(r.gapAngle) * ringR;
+                const gy = Math.sin(r.gapAngle) * ringR;
+                const gp = project(gx, gy, r.z);
+                ctx.globalAlpha = Math.min(0.3, 1 / r.z);
+                ctx.fillStyle = `hsl(${r.hue}, 70%, 55%)`;
+                ctx.beginPath(); ctx.arc(gp.x, gp.y, Math.max(3, 30 / r.z), 0, Math.PI * 2); ctx.fill();
+                ctx.globalAlpha = 1;
             });
 
             // Player crosshair
-            const px = playerX * W;
-            ctx.strokeStyle = '#8B5CF6'; ctx.lineWidth = 2; ctx.shadowBlur = 15; ctx.shadowColor = '#8B5CF6';
-            ctx.beginPath(); ctx.arc(px, H / 2, 12, 0, Math.PI * 2); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(px - 20, H / 2); ctx.lineTo(px + 20, H / 2); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(px, H / 2 - 20); ctx.lineTo(px, H / 2 + 20); ctx.stroke();
+            const pProj = project(playerX * 0.4, playerY * 0.4, 0.5);
+            ctx.strokeStyle = `hsl(${hueShift}, 80%, 70%)`;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 15; ctx.shadowColor = `hsl(${hueShift}, 80%, 70%)`;
+            ctx.beginPath(); ctx.arc(pProj.x, pProj.y, 8, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pProj.x - 14, pProj.y); ctx.lineTo(pProj.x - 6, pProj.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pProj.x + 6, pProj.y); ctx.lineTo(pProj.x + 14, pProj.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pProj.x, pProj.y - 14); ctx.lineTo(pProj.x, pProj.y - 6); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pProj.x, pProj.y + 6); ctx.lineTo(pProj.x, pProj.y + 14); ctx.stroke();
+            ctx.fillStyle = `hsl(${hueShift}, 80%, 70%)`; ctx.beginPath(); ctx.arc(pProj.x, pProj.y, 2, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
 
+            // Particles
+            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1;
+
+            ctx.restore();
             requestAnimationFrame(() => { update(); draw(); });
         }
 
         function gameOver() {
-            playing = false;
-            post('GAMEPLAY', 'GAME_COMPLETE', { score, status: 'loss' });
-            overlay.style.display = 'flex';
-            overlay.querySelector('h1').innerText = 'WARP FAILED';
-            overlay.querySelector('p').innerText = `DISTANCE: ${score}`;
-            startBtn.innerText = 'REWARP';
+            playing = false; shake(12, 15);
+            burst(cX + playerX * 150, cY + playerY * 150, '#EF4444', 25);
+            post('GAMEPLAY', 'GAME_COMPLETE', { score, ringsPassed, closeCalls, status: 'loss' });
+
+            setTimeout(() => {
+                overlay.style.display = 'flex';
+                document.getElementById('title').textContent = 'WARP FAILED';
+                document.getElementById('subtitle').textContent = '';
+                const stats = document.getElementById('stats-box'); stats.style.display = 'block';
+                document.getElementById('final-score').textContent = score;
+                document.getElementById('stat-dist').textContent = `Distance: ${score}`;
+                document.getElementById('stat-rings').textContent = `Rings passed: ${ringsPassed}`;
+                document.getElementById('stat-close').textContent = `Close calls: ${closeCalls}`;
+                startBtn.textContent = 'RE-ENGAGE';
+            }, 500);
         }
 
-        window.addEventListener('ArcadiaBridge', (e) => {
-            const { action } = e.detail || {};
-            if (action === 'LIFECYCLE_PAUSE') playing = false;
-            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
-        });
-
+        window.addEventListener('ArcadiaBridge', (e) => { const { action } = e.detail || {}; if (action === 'LIFECYCLE_PAUSE') playing = false; if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true; });
         draw();
     </script>
 </body>

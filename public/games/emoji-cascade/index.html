@@ -6,207 +6,223 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Emoji Cascade | Arcadia</title>
     <style>
-        :root {
-            --void: #000;
-            --accent: #F59E0B;
-            --text: #F9FAFB;
-        }
-
-        body {
-            margin: 0;
-            background: var(--void);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            touch-action: none;
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        #ui {
-            position: absolute;
-            top: 50px;
-            width: 100%;
-            text-align: center;
-            pointer-events: none;
-        }
-
-        #score {
-            font-size: 42px;
-            font-weight: 900;
-            letter-spacing: -2px;
-            text-shadow: 0 0 20px var(--accent);
-        }
-
-        #combo {
-            font-size: 18px;
-            opacity: 0.6;
-            margin-top: 4px;
-        }
-
-        #overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-
-        #overlay h1 {
-            font-size: 44px;
-            font-weight: 900;
-            margin: 0 0 4px;
-            letter-spacing: -2px;
-        }
-
-        #overlay p {
-            color: #9CA3AF;
-            margin-bottom: 32px;
-            letter-spacing: 2px;
-        }
-
-        .btn {
-            background: var(--accent);
-            color: #000;
-            padding: 18px 52px;
-            border-radius: 16px;
-            font-weight: 800;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            box-shadow: 0 0 30px rgba(245, 158, 11, 0.4);
-        }
+        :root { --void: #030712; --accent: #F59E0B; --accent2: #EC4899; }
+        body { margin: 0; background: var(--void); color: #fff; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; touch-action: none; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #ui { position: absolute; top: 50px; width: 100%; text-align: center; pointer-events: none; }
+        #score { font-size: 42px; font-weight: 900; text-shadow: 0 0 20px var(--accent); }
+        #combo { font-size: 16px; font-weight: 800; color: var(--accent2); letter-spacing: 3px; opacity: 0; transition: opacity 0.3s; margin-top: 4px; }
+        #target-emoji { position: absolute; top: 120px; width: 100%; text-align: center; font-size: 48px; pointer-events: none; }
+        #target-label { position: absolute; top: 175px; width: 100%; text-align: center; font-size: 12px; color: #6B7280; letter-spacing: 3px; pointer-events: none; }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(8px); }
+        #overlay h1 { font-size: 42px; font-weight: 900; margin: 0 0 6px; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #overlay p { color: #9CA3AF; margin-bottom: 32px; letter-spacing: 2px; }
+        .btn { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #000; padding: 18px 52px; border-radius: 14px; font-weight: 800; border: none; cursor: pointer; letter-spacing: 3px; box-shadow: 0 0 30px rgba(245,158,11,0.4); }
+        .btn:active { transform: scale(0.96); }
+        #stats-box { text-align: center; margin-bottom: 20px; display: none; }
+        #stats-box .big { font-size: 56px; font-weight: 900; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #stats-box .sm { font-size: 13px; color: #6B7280; margin: 3px 0; }
+        #timer-bar { position: absolute; top: 0; left: 0; height: 5px; background: linear-gradient(90deg, var(--accent), var(--accent2)); width: 100%; box-shadow: 0 0 10px rgba(245,158,11,0.5); }
     </style>
 </head>
 
 <body>
+    <div id="timer-bar"></div>
     <div id="ui">
         <div id="score">0</div>
-        <div id="combo"></div>
+        <div id="combo">3x COMBO</div>
     </div>
+    <div id="target-emoji">🎮</div>
+    <div id="target-label">CATCH THIS</div>
     <div id="overlay">
-        <h1>EMOJI CASCADE</h1>
-        <p>CATCH THE FALLING EMOJIS</p>
-        <button class="btn" id="start-btn">BEGIN</button>
+        <h1 id="title">EMOJI CASCADE</h1>
+        <p id="subtitle">TAP THE MATCHING EMOJI AS THEY FALL</p>
+        <div id="stats-box">
+            <div class="big" id="final-score">0</div>
+            <div class="sm" id="stat-caught">Caught: 0</div>
+            <div class="sm" id="stat-missed">Missed: 0</div>
+            <div class="sm" id="stat-wrong">Wrong taps: 0</div>
+            <div class="sm" id="stat-combo">Best combo: 0</div>
+        </div>
+        <button class="btn" id="start-btn">CASCADE</button>
     </div>
     <canvas id="game"></canvas>
+
+    <script src="../_template/arcadia-aaa-pack.js"></script>
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
         const scoreEl = document.getElementById('score');
         const comboEl = document.getElementById('combo');
+        const targetEmojiEl = document.getElementById('target-emoji');
+        const timerBar = document.getElementById('timer-bar');
         const overlay = document.getElementById('overlay');
         const startBtn = document.getElementById('start-btn');
 
-        let W, H, playing = false, score = 0, combo = 0, lives = 3, frame = 0;
-        let emojis = [], particles = [], catcherX = 0;
-        const EMOJIS = ['🍎', '🍊', '🍋', '🍇', '🍓', '⭐', '💎', '🔥', '🎯', '🌈'];
+        let W, H, playing = false, frame = 0, score = 0;
+        let emojis = [], particles = [], pops = [];
+        let targetEmoji, combo = 0, bestCombo = 0, caught = 0, missed = 0, wrongTaps = 0;
+        let fallSpeed = 1.5, spawnRate = 60;
+        let timeStart, maxTime = 45;
 
-        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; catcherX = W / 2; }
+        const EMOJI_POOL = ['🎮', '🚀', '⭐', '🔥', '💎', '⚡', '🎯', '🏆', '🎵', '🌟', '🎪', '🎲'];
+
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        function post(type, action, payload = {}) {
-            const msg = JSON.stringify({ version: '1.0', type, action, payload });
-            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
-            else window.parent?.postMessage(msg, '*');
+        function post(t, a, p = {}) {
+            const msg = JSON.stringify({ version: '1.0', type: t, action: a, payload: p });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg); else window.parent?.postMessage(msg, '*');
         }
         post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
 
-        startBtn.onclick = (e) => { e.stopPropagation(); playing = true; overlay.style.display = 'none'; score = 0; combo = 0; lives = 3; emojis = []; particles = []; post('GAMEPLAY', 'GAME_START'); };
-
-        const handleMove = (e) => { const t = e.touches ? e.touches[0] : e; catcherX = t.clientX; };
-        window.addEventListener('mousemove', handleMove);
-        window.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); }, { passive: false });
-        window.addEventListener('touchstart', handleMove);
-
-        function spawnEmoji() {
-            emojis.push({ x: Math.random() * (W - 40) + 20, y: -30, emoji: EMOJIS[Math.floor(Math.random() * EMOJIS.length)], speed: 2 + Math.random() * 2 + score / 500, size: 28 + Math.random() * 8 });
-        }
-
-        function burstParticles(x, y, color) {
-            for (let i = 0; i < 8; i++) {
-                particles.push({ x, y, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, life: 1, color });
+        function burst(x, y, color, count = 12) {
+            for (let i = 0; i < count; i++) {
+                const a = (Math.PI * 2 / count) * i; const v = 2 + Math.random() * 4;
+                particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2, life: 1, decay: 0.03, color, size: 2 + Math.random() * 3 });
             }
         }
+
+        function pickNewTarget() {
+            targetEmoji = EMOJI_POOL[Math.floor(Math.random() * Math.min(EMOJI_POOL.length, 4 + Math.floor(score / 100)))];
+            targetEmojiEl.textContent = targetEmoji;
+        }
+
+        function spawnEmoji() {
+            const isTarget = Math.random() < 0.35;
+            const pool = isTarget ? [targetEmoji] : EMOJI_POOL.filter(e => e !== targetEmoji);
+            const emoji = pool[Math.floor(Math.random() * pool.length)];
+            emojis.push({
+                emoji, x: 30 + Math.random() * (W - 60), y: -40,
+                size: 28 + Math.random() * 10, vy: fallSpeed + Math.random() * 0.8,
+                rotation: (Math.random() - 0.5) * 0.05, rot: 0, alpha: 1,
+                isTarget: emoji === targetEmoji
+            });
+        }
+
+        function handleTap(e) {
+            if (!playing) return;
+            const t = e.touches ? e.touches[0] : e;
+            const mx = t.clientX, my = t.clientY;
+            let hit = false;
+
+            for (let i = emojis.length - 1; i >= 0; i--) {
+                const em = emojis[i];
+                if (Math.hypot(mx - em.x, my - em.y) < em.size + 15) {
+                    if (em.isTarget) {
+                        hit = true; caught++; combo++;
+                        if (combo > bestCombo) bestCombo = combo;
+                        const mult = combo >= 5 ? 3 : combo >= 3 ? 2 : 1;
+                        const pts = 20 * mult;
+                        score += pts;
+                        scoreEl.textContent = score;
+                        burst(em.x, em.y, '#F59E0B', 18);
+                        pops.push({ x: em.x, y: em.y - 20, text: `+${pts}`, life: 1, vy: -2, color: '#F59E0B' });
+                        comboEl.style.opacity = combo >= 3 ? '1' : '0';
+                        comboEl.textContent = `${combo}x COMBO!`;
+                        emojis.splice(i, 1);
+                        if (caught % 5 === 0) pickNewTarget();
+                        post('GAMEPLAY', 'SCORE_UPDATE', { score, combo });
+                    } else {
+                        wrongTaps++; combo = 0;
+                        comboEl.style.opacity = '0';
+                        score = Math.max(0, score - 10);
+                        scoreEl.textContent = score;
+                        burst(em.x, em.y, '#EF4444', 8);
+                        pops.push({ x: em.x, y: em.y - 20, text: '-10', life: 1, vy: -2, color: '#EF4444' });
+                        emojis.splice(i, 1);
+                    }
+                    break;
+                }
+            }
+        }
+
+        window.addEventListener('touchstart', (e) => { e.preventDefault(); handleTap(e); }, { passive: false });
+        window.addEventListener('mousedown', handleTap);
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation(); playing = true; overlay.style.display = 'none';
+            document.getElementById('stats-box').style.display = 'none';
+            score = 0; combo = 0; bestCombo = 0; caught = 0; missed = 0; wrongTaps = 0;
+            frame = 0; fallSpeed = 1.5; spawnRate = 60;
+            emojis = []; particles = []; pops = [];
+            scoreEl.textContent = '0'; timeStart = Date.now();
+            pickNewTarget(); post('GAMEPLAY', 'GAME_START');
+        };
 
         function update() {
             if (!playing) return;
             frame++;
-            if (frame % Math.max(15, 40 - Math.floor(score / 50)) === 0) spawnEmoji();
 
-            emojis.forEach((e, i) => {
-                e.y += e.speed;
-                const dx = Math.abs(e.x - catcherX);
-                if (e.y > H - 80 && dx < 50) {
-                    score += 10 + combo * 2; combo++;
-                    burstParticles(e.x, e.y, '#F59E0B');
+            const elapsed = (Date.now() - timeStart) / 1000;
+            const timeLeft = Math.max(0, maxTime - elapsed);
+            timerBar.style.width = (timeLeft / maxTime * 100) + '%';
+            if (timeLeft <= 5) timerBar.style.background = 'linear-gradient(90deg, #EF4444, #F97316)';
+            else timerBar.style.background = 'linear-gradient(90deg, var(--accent), var(--accent2))';
+            if (timeLeft <= 0) { gameOver(); return; }
+
+            fallSpeed = 1.5 + elapsed / 30;
+            spawnRate = Math.max(15, 50 - Math.floor(elapsed / 3));
+            if (frame % spawnRate === 0) spawnEmoji();
+
+            for (let i = emojis.length - 1; i >= 0; i--) {
+                const em = emojis[i];
+                em.y += em.vy; em.rot += em.rotation;
+                if (em.y > H + 50) {
+                    if (em.isTarget) { missed++; combo = 0; comboEl.style.opacity = '0'; }
                     emojis.splice(i, 1);
-                    scoreEl.innerText = score;
-                    comboEl.innerText = combo > 1 ? `${combo}x COMBO!` : '';
-                    post('GAMEPLAY', 'SCORE_UPDATE', { score, combo });
-                } else if (e.y > H + 20) {
-                    emojis.splice(i, 1); combo = 0; lives--;
-                    comboEl.innerText = '';
-                    if (lives <= 0) gameOver();
                 }
-            });
+            }
 
-            particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life -= 0.04; if (p.life <= 0) particles.splice(i, 1); });
+            for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life -= p.decay; if (p.life <= 0) particles.splice(i, 1); }
+            for (let i = pops.length - 1; i >= 0; i--) { pops[i].y += pops[i].vy; pops[i].life -= 0.025; if (pops[i].life <= 0) pops.splice(i, 1); }
         }
 
         function draw() {
-            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+            ctx.fillStyle = '#030712'; ctx.fillRect(0, 0, W, H);
 
             // Ambient glow
-            const grd = ctx.createRadialGradient(catcherX, H - 60, 10, catcherX, H - 60, 200);
-            grd.addColorStop(0, 'rgba(245,158,11,0.15)'); grd.addColorStop(1, 'transparent');
-            ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
-
-            // Catcher
-            ctx.fillStyle = '#F59E0B'; ctx.shadowBlur = 20; ctx.shadowColor = '#F59E0B';
-            ctx.beginPath(); ctx.roundRect(catcherX - 40, H - 70, 80, 16, 8); ctx.fill();
-            ctx.shadowBlur = 0;
-
-            // Lives
-            ctx.font = '20px sans-serif'; ctx.fillStyle = '#fff';
-            for (let i = 0; i < lives; i++) ctx.fillText('❤️', 16 + i * 28, 36);
+            const g = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, W * 0.4);
+            g.addColorStop(0, 'rgba(245,158,11,0.04)'); g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
             // Emojis
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            emojis.forEach(e => { ctx.font = `${e.size}px sans-serif`; ctx.fillText(e.emoji, e.x, e.y); });
+            emojis.forEach(em => {
+                ctx.save(); ctx.translate(em.x, em.y); ctx.rotate(em.rot);
+                if (em.isTarget) {
+                    ctx.shadowBlur = 15; ctx.shadowColor = '#F59E0B';
+                }
+                ctx.font = `${em.size}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(em.emoji, 0, 0);
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            });
 
             // Particles
-            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill(); });
-            ctx.globalAlpha = 1;
+            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1;
+
+            // Pops
+            pops.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.font = `bold ${14 + (1 - p.life) * 5}px Inter, sans-serif`; ctx.textAlign = 'center'; ctx.fillText(p.text, p.x, p.y); }); ctx.globalAlpha = 1;
 
             requestAnimationFrame(() => { update(); draw(); });
         }
 
         function gameOver() {
             playing = false;
-            post('GAMEPLAY', 'GAME_COMPLETE', { score, status: 'loss' });
+            post('GAMEPLAY', 'GAME_COMPLETE', { score, caught, missed, wrongTaps, bestCombo, status: 'complete' });
             overlay.style.display = 'flex';
-            overlay.querySelector('h1').innerText = 'CASCADE OVER';
-            overlay.querySelector('p').innerText = `SCORE: ${score}`;
-            startBtn.innerText = 'RETRY';
+            document.getElementById('title').textContent = 'TIME UP!';
+            document.getElementById('subtitle').textContent = '';
+            const stats = document.getElementById('stats-box'); stats.style.display = 'block';
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('stat-caught').textContent = `Caught: ${caught}`;
+            document.getElementById('stat-missed').textContent = `Missed: ${missed}`;
+            document.getElementById('stat-wrong').textContent = `Wrong taps: ${wrongTaps}`;
+            document.getElementById('stat-combo').textContent = `Best combo: ${bestCombo}x`;
+            startBtn.textContent = 'RETRY';
         }
 
-        window.addEventListener('ArcadiaBridge', (e) => {
-            const { action } = e.detail || {};
-            if (action === 'LIFECYCLE_PAUSE') playing = false;
-            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
-        });
-
+        window.addEventListener('ArcadiaBridge', (e) => { const { action } = e.detail || {}; if (action === 'LIFECYCLE_PAUSE') playing = false; if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true; });
         draw();
     </script>
 </body>

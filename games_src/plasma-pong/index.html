@@ -6,92 +6,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Plasma Pong | Arcadia</title>
     <style>
-        :root {
-            --void: #000;
-            --accent: #06B6D4;
-            --text: #F9FAFB;
-        }
-
-        body {
-            margin: 0;
-            background: var(--void);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            touch-action: none;
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        #ui {
-            position: absolute;
-            top: 40px;
-            width: 100%;
-            text-align: center;
-            pointer-events: none;
-        }
-
-        #score {
-            font-size: 48px;
-            font-weight: 900;
-            letter-spacing: 8px;
-            text-shadow: 0 0 20px var(--accent);
-        }
-
-        #overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.88);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-
-        #overlay h1 {
-            font-size: 44px;
-            font-weight: 900;
-            margin: 0 0 6px;
-            letter-spacing: -1px;
-        }
-
-        #overlay p {
-            color: #9CA3AF;
-            margin-bottom: 32px;
-            letter-spacing: 2px;
-        }
-
-        .btn {
-            background: var(--accent);
-            color: #000;
-            padding: 18px 52px;
-            border-radius: 16px;
-            font-weight: 800;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-            letter-spacing: 3px;
-            box-shadow: 0 0 30px rgba(6, 182, 212, 0.4);
-        }
+        :root { --void: #030712; --accent: #EC4899; --accent2: #F59E0B; }
+        body { margin: 0; background: var(--void); color: #fff; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; touch-action: none; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #ui { position: absolute; top: 30px; width: 100%; text-align: center; pointer-events: none; }
+        #score { font-size: 52px; font-weight: 900; letter-spacing: 20px; text-shadow: 0 0 20px var(--accent); }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(8px); }
+        #overlay h1 { font-size: 42px; font-weight: 900; margin: 0 0 6px; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #overlay p { color: #9CA3AF; margin-bottom: 32px; letter-spacing: 2px; }
+        .btn { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #000; padding: 18px 52px; border-radius: 14px; font-weight: 800; border: none; cursor: pointer; letter-spacing: 3px; box-shadow: 0 0 30px rgba(236,72,153,0.4); }
+        .btn:active { transform: scale(0.96); }
+        #stats-box { text-align: center; margin-bottom: 20px; display: none; }
+        #stats-box .big { font-size: 56px; font-weight: 900; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #stats-box .sm { font-size: 13px; color: #6B7280; margin: 3px 0; }
     </style>
 </head>
 
 <body>
-    <div id="ui">
-        <div id="score">0 — 0</div>
-    </div>
+    <div id="ui"><div id="score">0 — 0</div></div>
     <div id="overlay">
-        <h1>PLASMA PONG</h1>
-        <p>DRAG YOUR PADDLE · BEAT THE AI</p>
+        <h1 id="title">PLASMA PONG</h1>
+        <p id="subtitle">DRAG TO MOVE · FIRST TO 7 WINS</p>
+        <div id="stats-box">
+            <div class="big" id="final-score">7 — 3</div>
+            <div class="sm" id="stat-rallies">Rallies: 0</div>
+            <div class="sm" id="stat-longest">Longest rally: 0</div>
+        </div>
         <button class="btn" id="start-btn">SERVE</button>
     </div>
     <canvas id="game"></canvas>
+
+    <script src="../_template/arcadia-aaa-pack.js"></script>
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
@@ -101,154 +46,172 @@
 
         let W, H, playing = false, frame = 0;
         let playerScore = 0, aiScore = 0;
-        let paddle = { y: 0, h: 100, w: 12 };
-        let aiPaddle = { y: 0, h: 100, w: 12 };
-        let ball = { x: 0, y: 0, vx: 0, vy: 0, r: 8 };
-        let particles = [], trail = [];
+        let player, ai, ball, particles, trails;
+        let rally = 0, totalRallies = 0, longestRally = 0;
+        let shakeX = 0, shakeY = 0, shakeDur = 0;
+        const WIN_SCORE = 7;
 
-        function resize() {
-            W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-            paddle.y = H / 2 - paddle.h / 2;
-            aiPaddle.y = H / 2 - aiPaddle.h / 2;
-        }
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        function post(type, action, payload = {}) {
-            const msg = JSON.stringify({ version: '1.0', type, action, payload });
-            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
-            else window.parent?.postMessage(msg, '*');
+        function post(t, a, p = {}) {
+            const msg = JSON.stringify({ version: '1.0', type: t, action: a, payload: p });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg); else window.parent?.postMessage(msg, '*');
         }
         post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
 
-        function resetBall(dir) {
-            ball.x = W / 2; ball.y = H / 2;
-            ball.vx = (4 + playerScore * 0.3 + aiScore * 0.3) * dir;
-            ball.vy = (Math.random() - 0.5) * 6;
+        function shake(i, d) { shakeDur = d; shakeX = (Math.random() - 0.5) * i; shakeY = (Math.random() - 0.5) * i; }
+        function burst(x, y, color, count = 12) {
+            for (let i = 0; i < count; i++) {
+                const a = Math.random() * Math.PI * 2; const v = 2 + Math.random() * 4;
+                particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, decay: 0.03, color, size: 2 + Math.random() * 2 });
+            }
         }
+
+        function resetBall(dir) {
+            ball = { x: W / 2, y: H / 2, vx: (3 + Math.random()) * dir, vy: (Math.random() - 0.5) * 4, r: 8, speed: 5 };
+            rally = 0;
+        }
+
+        function initGame() {
+            const pw = 14, ph = 80;
+            player = { x: 20, y: H / 2 - ph / 2, w: pw, h: ph };
+            ai = { x: W - 20 - pw, y: H / 2 - ph / 2, w: pw, h: ph };
+            particles = []; trails = [];
+            playerScore = 0; aiScore = 0; totalRallies = 0; longestRally = 0;
+            resetBall(1);
+        }
+
+        const movePaddle = (e) => {
+            if (!playing) return;
+            const t = e.touches ? e.touches[0] : e;
+            player.y = Math.max(0, Math.min(H - player.h, t.clientY - player.h / 2));
+        };
+        window.addEventListener('mousemove', movePaddle);
+        window.addEventListener('touchmove', (e) => { e.preventDefault(); movePaddle(e); }, { passive: false });
+        window.addEventListener('touchstart', (e) => { e.preventDefault(); movePaddle(e); }, { passive: false });
 
         startBtn.onclick = (e) => {
             e.stopPropagation(); playing = true; overlay.style.display = 'none';
-            playerScore = 0; aiScore = 0; particles = []; trail = [];
-            resetBall(1);
-            post('GAMEPLAY', 'GAME_START');
+            document.getElementById('stats-box').style.display = 'none';
+            initGame(); post('GAMEPLAY', 'GAME_START');
         };
-
-        let targetY = H / 2;
-        const handleMove = (e) => { const t = e.touches ? e.touches[0] : e; targetY = t.clientY; };
-        window.addEventListener('mousemove', handleMove);
-        window.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); }, { passive: false });
-        window.addEventListener('touchstart', handleMove);
-
-        function burst(x, y, color) {
-            for (let i = 0; i < 12; i++) particles.push({ x, y, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10, life: 1, color });
-        }
 
         function update() {
             if (!playing) return;
             frame++;
 
-            // Player paddle follows finger
-            paddle.y += (targetY - paddle.y - paddle.h / 2) * 0.15;
-            paddle.y = Math.max(0, Math.min(H - paddle.h, paddle.y));
-
-            // AI paddle tracks ball
-            const aiTarget = ball.y - aiPaddle.h / 2;
-            const aiSpeed = 3 + (playerScore + aiScore) * 0.2;
-            aiPaddle.y += Math.sign(aiTarget - aiPaddle.y) * Math.min(aiSpeed, Math.abs(aiTarget - aiPaddle.y));
-            aiPaddle.y = Math.max(0, Math.min(H - aiPaddle.h, aiPaddle.y));
-
-            // Ball movement
-            trail.push({ x: ball.x, y: ball.y, alpha: 1 });
-            if (trail.length > 20) trail.shift();
-            trail.forEach(t => t.alpha -= 0.05);
-
+            // Ball physics
             ball.x += ball.vx; ball.y += ball.vy;
 
             // Top/bottom bounce
-            if (ball.y - ball.r < 0 || ball.y + ball.r > H) { ball.vy *= -1; ball.y = Math.max(ball.r, Math.min(H - ball.r, ball.y)); }
+            if (ball.y - ball.r < 0 || ball.y + ball.r > H) { ball.vy *= -1; ball.y = ball.y - ball.r < 0 ? ball.r : H - ball.r; }
 
-            // Player paddle hit
-            if (ball.x - ball.r < 30 + paddle.w && ball.y > paddle.y && ball.y < paddle.y + paddle.h && ball.vx < 0) {
-                ball.vx = Math.abs(ball.vx) * 1.05;
-                ball.vy += (ball.y - (paddle.y + paddle.h / 2)) * 0.15;
-                burst(ball.x, ball.y, '#06B6D4');
+            // Trail
+            if (frame % 2 === 0) trails.push({ x: ball.x, y: ball.y, alpha: 0.5 });
+            for (let i = trails.length - 1; i >= 0; i--) { trails[i].alpha -= 0.04; if (trails[i].alpha <= 0) trails.splice(i, 1); }
+
+            // Paddle collision — player
+            if (ball.vx < 0 && ball.x - ball.r <= player.x + player.w && ball.x + ball.r >= player.x &&
+                ball.y >= player.y && ball.y <= player.y + player.h) {
+                const hit = (ball.y - (player.y + player.h / 2)) / (player.h / 2);
+                ball.vx = Math.abs(ball.vx) * 1.05; ball.vy = hit * 6;
+                ball.x = player.x + player.w + ball.r;
+                rally++; totalRallies++;
+                if (rally > longestRally) longestRally = rally;
+                burst(ball.x, ball.y, '#EC4899', 8);
             }
 
-            // AI paddle hit
-            if (ball.x + ball.r > W - 30 - aiPaddle.w && ball.y > aiPaddle.y && ball.y < aiPaddle.y + aiPaddle.h && ball.vx > 0) {
-                ball.vx = -Math.abs(ball.vx) * 1.05;
-                ball.vy += (ball.y - (aiPaddle.y + aiPaddle.h / 2)) * 0.15;
-                burst(ball.x, ball.y, '#EF4444');
+            // Paddle collision — AI
+            if (ball.vx > 0 && ball.x + ball.r >= ai.x && ball.x - ball.r <= ai.x + ai.w &&
+                ball.y >= ai.y && ball.y <= ai.y + ai.h) {
+                const hit = (ball.y - (ai.y + ai.h / 2)) / (ai.h / 2);
+                ball.vx = -Math.abs(ball.vx) * 1.05; ball.vy = hit * 6;
+                ball.x = ai.x - ball.r;
+                rally++; totalRallies++;
+                if (rally > longestRally) longestRally = rally;
+                burst(ball.x, ball.y, '#F59E0B', 8);
             }
 
-            // Score
-            if (ball.x < 0) { aiScore++; updateScore(); resetBall(1); }
-            if (ball.x > W) { playerScore++; updateScore(); resetBall(-1); }
+            // Speed cap
+            const spd = Math.hypot(ball.vx, ball.vy);
+            if (spd > 12) { ball.vx *= 12 / spd; ball.vy *= 12 / spd; }
 
-            particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life -= 0.03; if (p.life <= 0) particles.splice(i, 1); });
+            // AI movement
+            const aiTarget = ball.y - ai.h / 2;
+            const aiSpeed = 3 + Math.min(3, aiScore * 0.3);
+            ai.y += Math.sign(aiTarget - ai.y) * Math.min(aiSpeed, Math.abs(aiTarget - ai.y));
 
-            if (playerScore >= 7 || aiScore >= 7) gameOver();
-        }
+            // Scoring
+            if (ball.x < -20) {
+                aiScore++; shake(8, 10); burst(0, ball.y, '#F59E0B', 20);
+                scoreEl.textContent = `${playerScore} — ${aiScore}`;
+                if (aiScore >= WIN_SCORE) { gameOver(); return; }
+                resetBall(1);
+            }
+            if (ball.x > W + 20) {
+                playerScore++; shake(8, 10); burst(W, ball.y, '#EC4899', 20);
+                scoreEl.textContent = `${playerScore} — ${aiScore}`;
+                post('GAMEPLAY', 'SCORE_UPDATE', { playerScore, aiScore });
+                if (playerScore >= WIN_SCORE) { gameOver(); return; }
+                resetBall(-1);
+            }
 
-        function updateScore() {
-            scoreEl.innerText = `${playerScore} — ${aiScore}`;
-            post('GAMEPLAY', 'SCORE_UPDATE', { player: playerScore, ai: aiScore });
+            // Shake / particles
+            if (shakeDur > 0) { shakeDur--; shakeX *= 0.85; shakeY *= 0.85; } else { shakeX = shakeY = 0; }
+            for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= p.decay; if (p.life <= 0) particles.splice(i, 1); }
         }
 
         function draw() {
-            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+            ctx.save(); ctx.translate(shakeX, shakeY);
+            ctx.fillStyle = '#030712'; ctx.fillRect(-5, -5, W + 10, H + 10);
 
             // Center line
             ctx.setLineDash([8, 12]); ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke();
-            ctx.setLineDash([]);
+            ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke(); ctx.setLineDash([]);
+
+            // Center circle
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.beginPath(); ctx.arc(W / 2, H / 2, 60, 0, Math.PI * 2); ctx.stroke();
 
             // Trail
-            trail.forEach(t => {
-                if (t.alpha <= 0) return;
-                ctx.globalAlpha = t.alpha * 0.5; ctx.fillStyle = '#06B6D4';
-                ctx.beginPath(); ctx.arc(t.x, t.y, ball.r * 0.7, 0, Math.PI * 2); ctx.fill();
-            });
-            ctx.globalAlpha = 1;
+            trails.forEach(t => { ctx.globalAlpha = t.alpha; ctx.fillStyle = '#EC4899'; ctx.beginPath(); ctx.arc(t.x, t.y, 5, 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1;
 
             // Player paddle
-            ctx.fillStyle = '#06B6D4'; ctx.shadowBlur = 15; ctx.shadowColor = '#06B6D4';
-            ctx.beginPath(); ctx.roundRect(20, paddle.y, paddle.w, paddle.h, 6); ctx.fill();
-            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#EC4899'; ctx.shadowBlur = 15; ctx.shadowColor = '#EC4899';
+            ctx.beginPath(); ctx.roundRect(player.x, player.y, player.w, player.h, 7); ctx.fill();
 
             // AI paddle
-            ctx.fillStyle = '#EF4444'; ctx.shadowBlur = 15; ctx.shadowColor = '#EF4444';
-            ctx.beginPath(); ctx.roundRect(W - 20 - aiPaddle.w, aiPaddle.y, aiPaddle.w, aiPaddle.h, 6); ctx.fill();
+            ctx.fillStyle = '#F59E0B'; ctx.shadowColor = '#F59E0B';
+            ctx.beginPath(); ctx.roundRect(ai.x, ai.y, ai.w, ai.h, 7); ctx.fill();
             ctx.shadowBlur = 0;
 
             // Ball
-            ctx.fillStyle = '#fff'; ctx.shadowBlur = 20; ctx.shadowColor = '#06B6D4';
+            ctx.fillStyle = '#fff'; ctx.shadowBlur = 20; ctx.shadowColor = '#fff';
             ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
 
             // Particles
-            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill(); });
-            ctx.globalAlpha = 1;
+            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1;
 
+            ctx.restore();
             requestAnimationFrame(() => { update(); draw(); });
         }
 
         function gameOver() {
             playing = false;
-            const won = playerScore > aiScore;
-            post('GAMEPLAY', 'GAME_COMPLETE', { player: playerScore, ai: aiScore, status: won ? 'win' : 'loss' });
+            const won = playerScore >= WIN_SCORE;
+            post('GAMEPLAY', 'GAME_COMPLETE', { playerScore, aiScore, totalRallies, longestRally, status: won ? 'win' : 'loss' });
             overlay.style.display = 'flex';
-            overlay.querySelector('h1').innerText = won ? 'VICTORY' : 'DEFEATED';
-            overlay.querySelector('p').innerText = `${playerScore} — ${aiScore}`;
-            startBtn.innerText = 'REMATCH';
+            document.getElementById('title').textContent = won ? 'YOU WIN!' : 'AI WINS';
+            document.getElementById('subtitle').textContent = '';
+            const stats = document.getElementById('stats-box'); stats.style.display = 'block';
+            document.getElementById('final-score').textContent = `${playerScore} — ${aiScore}`;
+            document.getElementById('stat-rallies').textContent = `Rallies: ${totalRallies}`;
+            document.getElementById('stat-longest').textContent = `Longest rally: ${longestRally}`;
+            startBtn.textContent = 'REMATCH';
         }
 
-        window.addEventListener('ArcadiaBridge', (e) => {
-            const { action } = e.detail || {};
-            if (action === 'LIFECYCLE_PAUSE') playing = false;
-            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
-        });
-
+        window.addEventListener('ArcadiaBridge', (e) => { const { action } = e.detail || {}; if (action === 'LIFECYCLE_PAUSE') playing = false; if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true; });
         draw();
     </script>
 </body>

@@ -3,274 +3,291 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>DURRA Blocks</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Durra Blocks | Arcadia</title>
     <style>
-        :root {
-            --accent: #8B5CF6;
-            --bg: #0A0A0A;
-        }
-
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg);
-            overflow: hidden;
-            font-family: 'Inter', sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #canvas-container {
-            position: relative;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            background: rgba(255, 255, 255, 0.02);
-            height: 85vh;
-            /* Reduced to give more space for controls on small screens */
-            aspect-ratio: 1/1.8;
-            margin-top: -40px;
-        }
-
-        canvas {
-            display: block;
-            height: 100%;
-            width: 100%;
-        }
-
-        .controls {
-            position: absolute;
-            bottom: -80px;
-            left: 0;
-            width: 100%;
-            display: flex;
-            justify-content: space-around;
-            pointer-events: auto;
-        }
-
-        .ctrl-btn {
-            width: 64px;
-            height: 64px;
-            border-radius: 32px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-            user-select: none;
-        }
-
-        .ctrl-btn:active {
-            background: rgba(255, 255, 255, 0.2);
-            transform: scale(0.95);
-        }
-
-        #start-screen {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(20px);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            z-index: 10;
-        }
-
-        .btn {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 18px 44px;
-            border-radius: 18px;
-            font-weight: 800;
-            cursor: pointer;
-            letter-spacing: 4px;
-            font-size: 16px;
-        }
+        :root { --void: #030712; --accent: #F59E0B; --accent2: #EF4444; }
+        body { margin: 0; background: var(--void); color: #fff; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; touch-action: none; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #ui { position: absolute; top: 50px; width: 100%; text-align: center; pointer-events: none; }
+        #score { font-size: 42px; font-weight: 900; text-shadow: 0 0 20px var(--accent); }
+        #lines-text { font-size: 12px; color: #6B7280; letter-spacing: 3px; margin-top: 2px; }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(8px); }
+        #overlay h1 { font-size: 42px; font-weight: 900; margin: 0 0 6px; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #overlay p { color: #9CA3AF; margin-bottom: 32px; letter-spacing: 2px; }
+        .btn { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #000; padding: 18px 52px; border-radius: 14px; font-weight: 800; border: none; cursor: pointer; letter-spacing: 3px; box-shadow: 0 0 30px rgba(245,158,11,0.4); }
+        .btn:active { transform: scale(0.96); }
+        #stats-box { text-align: center; margin-bottom: 20px; display: none; }
+        #stats-box .big { font-size: 56px; font-weight: 900; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #stats-box .sm { font-size: 13px; color: #6B7280; margin: 3px 0; }
     </style>
 </head>
 
 <body>
-    <div id="canvas-container">
-        <canvas id="game"></canvas>
-        <div id="start-screen">
-            <h1 style="letter-spacing: 10px;">BLOCKS</h1>
-            <p style="opacity: 0.5; margin-bottom: 30px;">THE GEOMETRY OF ORDER</p>
-            <button class="btn" onclick="startGame()">POWER UP</button>
-        </div>
-        <div class="controls">
-            <div class="ctrl-btn" ontouchstart="handleControl(-1)">←</div>
-            <div class="ctrl-btn" ontouchstart="handleRotate()">↻</div>
-            <div class="ctrl-btn" ontouchstart="handleControl(1)">→</div>
-            <div class="ctrl-btn" ontouchstart="handleDrop()">↓</div>
-        </div>
+    <div id="ui">
+        <div id="score">0</div>
+        <div id="lines-text">LINES: 0</div>
     </div>
+    <div id="overlay">
+        <h1 id="title">DURRA BLOCKS</h1>
+        <p id="subtitle">SWIPE TO MOVE · TAP TO ROTATE</p>
+        <div id="stats-box">
+            <div class="big" id="final-score">0</div>
+            <div class="sm" id="stat-lines">Lines cleared: 0</div>
+            <div class="sm" id="stat-level">Level reached: 0</div>
+        </div>
+        <button class="btn" id="start-btn">STACK</button>
+    </div>
+    <canvas id="game"></canvas>
 
     <script src="../_template/arcadia-aaa-pack.js"></script>
-    <script src="../_template/durra-bridge.js"></script>
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
-        const ROWS = 20, COLS = 10;
-        let blockSize, board, currentPiece, score, gameOverState, lastTime = 0, dropCounter = 0;
-        let isPaused = false;
+        const scoreEl = document.getElementById('score');
+        const linesText = document.getElementById('lines-text');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
 
-        DURRA_Bridge.onPause = () => { isPaused = true; };
-        DURRA_Bridge.onResume = () => { isPaused = false; };
+        const COLS = 10, ROWS = 20;
+        let W, H, cellSize, gridX, gridY;
+        let board, piece, nextPiece, score, lines, level, playing, dropTimer, dropInterval;
+        let particles = [], flashRows = [];
 
-        const PIECES = [
-            [[1, 1, 1, 1]], [[1, 1], [1, 1]], [[0, 1, 0], [1, 1, 1]],
-            [[1, 0, 0], [1, 1, 1]], [[0, 0, 1], [1, 1, 1]],
-            [[0, 1, 1], [1, 1, 0]], [[1, 1, 0], [0, 1, 1]]
+        const SHAPES = [
+            { cells: [[0,0],[1,0],[2,0],[3,0]], color: '#22D3EE' },
+            { cells: [[0,0],[1,0],[0,1],[1,1]], color: '#FBBF24' },
+            { cells: [[0,0],[1,0],[2,0],[1,1]], color: '#A855F7' },
+            { cells: [[0,0],[1,0],[2,0],[2,1]], color: '#F97316' },
+            { cells: [[0,0],[1,0],[2,0],[0,1]], color: '#3B82F6' },
+            { cells: [[0,0],[1,0],[1,1],[2,1]], color: '#10B981' },
+            { cells: [[1,0],[2,0],[0,1],[1,1]], color: '#EF4444' }
         ];
 
-        const COLORS = ['#6366F1', '#8B5CF6', '#EC4899', '#F43F5E', '#F59E0B', '#10B981', '#06B6D4'];
+        function resize() {
+            W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
+            cellSize = Math.min((W - 40) / COLS, (H - 200) / ROWS);
+            gridX = (W - COLS * cellSize) / 2;
+            gridY = (H - ROWS * cellSize) / 2 + 40;
+        }
+        window.addEventListener('resize', resize); resize();
 
-        function init() {
-            blockSize = canvas.width / COLS;
-            canvas.height = blockSize * ROWS;
-            board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
-            score = 0;
-            gameOverState = false;
+        function post(t, a, p = {}) {
+            const msg = JSON.stringify({ version: '1.0', type: t, action: a, payload: p });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg); else window.parent?.postMessage(msg, '*');
+        }
+        post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
+
+        function burst(x, y, color, count = 8) {
+            for (let i = 0; i < count; i++) {
+                const a = Math.random() * Math.PI * 2; const v = 1 + Math.random() * 3;
+                particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, life: 1, decay: 0.03, color, size: 2 + Math.random() * 2 });
+            }
         }
 
-        function createPiece() {
-            const idx = Math.floor(Math.random() * PIECES.length);
-            return { shape: PIECES[idx], color: COLORS[idx], pos: { x: Math.floor(COLS / 2) - 1, y: 0 } };
+        function newPiece() {
+            const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+            return { cells: shape.cells.map(c => [...c]), color: shape.color, x: 3, y: 0 };
         }
 
-        function startGame() {
-            DURRA_Bridge.flowStart();
-            init();
-            currentPiece = createPiece();
-            document.getElementById('start-screen').style.display = 'none';
-            gameOverState = false;
-            requestAnimationFrame(update);
+        function canMove(p, dx, dy) {
+            for (const [cx, cy] of p.cells) {
+                const nx = p.x + cx + dx, ny = p.y + cy + dy;
+                if (nx < 0 || nx >= COLS || ny >= ROWS) return false;
+                if (ny >= 0 && board[ny][nx]) return false;
+            }
+            return true;
         }
 
-        function collide(board, piece) {
-            const { shape, pos } = piece;
-            for (let y = 0; y < shape.length; y++) {
-                for (let x = 0; x < shape[y].length; x++) {
-                    if (shape[y][x] !== 0 && (board[y + pos.y] === undefined || board[y + pos.y][x + pos.x] === undefined || board[y + pos.y][x + pos.x] !== 0)) return true;
+        function rotate(p) {
+            const rotated = p.cells.map(([x, y]) => [-y, x]);
+            const minX = Math.min(...rotated.map(c => c[0]));
+            const minY = Math.min(...rotated.map(c => c[1]));
+            const adjusted = rotated.map(([x, y]) => [x - minX, y - minY]);
+            const test = { ...p, cells: adjusted };
+            if (canMove(test, 0, 0)) return adjusted;
+            if (canMove(test, 1, 0)) { p.x += 1; return adjusted; }
+            if (canMove(test, -1, 0)) { p.x -= 1; return adjusted; }
+            return p.cells;
+        }
+
+        function lockPiece() {
+            for (const [cx, cy] of piece.cells) {
+                const nx = piece.x + cx, ny = piece.y + cy;
+                if (ny >= 0 && ny < ROWS) board[ny][nx] = piece.color;
+            }
+            // Check lines
+            let cleared = 0;
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r].every(c => c)) {
+                    flashRows.push(r);
+                    board.splice(r, 1);
+                    board.unshift(new Array(COLS).fill(null));
+                    cleared++; r++;
+                    for (let c = 0; c < COLS; c++) burst(gridX + c * cellSize + cellSize / 2, gridY + r * cellSize, piece.color, 3);
                 }
             }
-            return false;
-        }
-
-        function merge(board, piece) {
-            piece.shape.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value !== 0) board[y + piece.pos.y][x + piece.pos.x] = piece.color;
-                });
-            });
-        }
-
-        function sweep() {
-            let rowCount = 0;
-            outer: for (let y = board.length - 1; y >= 0; y--) {
-                for (let x = 0; x < board[y].length; x++) if (board[y][x] === 0) continue outer;
-                const row = board.splice(y, 1)[0].fill(0);
-                board.unshift(row);
-                y++; rowCount++;
+            if (cleared > 0) {
+                const pts = [0, 100, 300, 500, 800][cleared] * (level + 1);
+                score += pts; lines += cleared;
+                level = Math.floor(lines / 10);
+                dropInterval = Math.max(100, 800 - level * 70);
+                scoreEl.textContent = score;
+                linesText.textContent = `LINES: ${lines} · LV ${level + 1}`;
+                post('GAMEPLAY', 'SCORE_UPDATE', { score, lines, level });
             }
-            if (rowCount > 0) {
-                score += rowCount * 100;
-                DURRA_Bridge.reportScore(score);
-                DURRA_Bridge.haptic('impactMedium');
+
+            piece = nextPiece; nextPiece = newPiece();
+            if (!canMove(piece, 0, 0)) { gameOver(); return; }
+        }
+
+        function hardDrop() {
+            while (canMove(piece, 0, 1)) piece.y++;
+            lockPiece();
+        }
+
+        // Touch controls
+        let touchStartX, touchStartY, touchMoved;
+        window.addEventListener('touchstart', (e) => {
+            if (!playing) return;
+            e.preventDefault();
+            touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; touchMoved = false;
+        }, { passive: false });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!playing) return;
+            e.preventDefault();
+            const dx = e.touches[0].clientX - touchStartX;
+            const dy = e.touches[0].clientY - touchStartY;
+            if (Math.abs(dx) > cellSize && !touchMoved) {
+                touchMoved = true;
+                if (dx > 0 && canMove(piece, 1, 0)) piece.x++;
+                else if (dx < 0 && canMove(piece, -1, 0)) piece.x--;
+                touchStartX = e.touches[0].clientX;
+                touchMoved = false;
             }
-        }
+            if (dy > cellSize * 3) { hardDrop(); touchStartY = e.touches[0].clientY; }
+        }, { passive: false });
 
-        function drawBlock(x, y, color) {
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.roundRect(x + 2, y + 2, blockSize - 4, blockSize - 4, 8);
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-        }
-
-        function handleControl(dir) {
-            if (gameOverState || isPaused) return;
-            currentPiece.pos.x += dir;
-            if (collide(board, currentPiece)) currentPiece.pos.x -= dir;
-            else DURRA_Bridge.haptic('impactLight');
-        }
-
-        function handleRotate() {
-            if (gameOverState || isPaused) return;
-            const prevShape = currentPiece.shape;
-            currentPiece.shape = currentPiece.shape[0].map((val, index) => currentPiece.shape.map(row => row[index]).reverse());
-            if (collide(board, currentPiece)) currentPiece.shape = prevShape;
-            else DURRA_Bridge.haptic('impactMedium');
-        }
-
-        function handleDrop() {
-            if (gameOverState || isPaused) return;
-            drop();
-            DURRA_Bridge.haptic('impactLight');
-        }
-
-        function drop() {
-            currentPiece.pos.y++;
-            if (collide(board, currentPiece)) {
-                currentPiece.pos.y--;
-                merge(board, currentPiece);
-                sweep();
-                currentPiece = createPiece();
-                if (collide(board, currentPiece)) {
-                    gameOverState = true;
-                    document.getElementById('start-screen').style.display = 'flex';
-                    document.getElementById('start-screen').querySelector('h1').innerText = 'COLLISION';
-                    DURRA_Bridge.complete({ points: score, status: "loss" });
-                }
-            }
-            dropCounter = 0;
-        }
-
-        function update(time = 0) {
-            if (gameOverState || isPaused) {
-                if (!gameOverState) requestAnimationFrame(update);
-                return;
-            }
-            const deltaTime = time - lastTime;
-            lastTime = time;
-            dropCounter += deltaTime;
-            if (dropCounter > 1000) drop();
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            board.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value !== 0) drawBlock(x * blockSize, y * blockSize, value);
-                });
-            });
-            currentPiece.shape.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value !== 0) drawBlock((x + currentPiece.pos.x) * blockSize, (y + currentPiece.pos.y) * blockSize, currentPiece.color);
-                });
-            });
-            requestAnimationFrame(update);
-        }
-
-        window.addEventListener('keydown', e => {
-            if (e.key === 'ArrowLeft') handleControl(-1);
-            if (e.key === 'ArrowRight') handleControl(1);
-            if (e.key === 'ArrowDown') handleDrop();
-            if (e.key === 'ArrowUp') handleRotate();
+        window.addEventListener('touchend', (e) => {
+            if (!playing || touchMoved) return;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+            if (Math.abs(dy) < 15) piece.cells = rotate(piece);
         });
 
-        init();
+        // Keyboard
+        window.addEventListener('keydown', (e) => {
+            if (!playing) return;
+            if (e.key === 'ArrowLeft' && canMove(piece, -1, 0)) piece.x--;
+            if (e.key === 'ArrowRight' && canMove(piece, 1, 0)) piece.x++;
+            if (e.key === 'ArrowDown' && canMove(piece, 0, 1)) piece.y++;
+            if (e.key === 'ArrowUp') piece.cells = rotate(piece);
+            if (e.key === ' ') hardDrop();
+        });
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation(); playing = true; overlay.style.display = 'none';
+            document.getElementById('stats-box').style.display = 'none';
+            board = Array.from({ length: ROWS }, () => new Array(COLS).fill(null));
+            piece = newPiece(); nextPiece = newPiece();
+            score = 0; lines = 0; level = 0; dropInterval = 800;
+            particles = []; flashRows = [];
+            scoreEl.textContent = '0'; linesText.textContent = 'LINES: 0 · LV 1';
+            post('GAMEPLAY', 'GAME_START');
+        };
+
+        let lastDrop = 0;
+        function update(time) {
+            if (!playing) return;
+            if (time - lastDrop > dropInterval) {
+                lastDrop = time;
+                if (canMove(piece, 0, 1)) piece.y++;
+                else lockPiece();
+            }
+            for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life -= p.decay; if (p.life <= 0) particles.splice(i, 1); }
+        }
+
+        function draw(time) {
+            ctx.fillStyle = '#030712'; ctx.fillRect(0, 0, W, H);
+
+            // Grid background
+            ctx.fillStyle = 'rgba(255,255,255,0.02)';
+            ctx.fillRect(gridX, gridY, COLS * cellSize, ROWS * cellSize);
+            ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 0.5;
+            for (let c = 0; c <= COLS; c++) { ctx.beginPath(); ctx.moveTo(gridX + c * cellSize, gridY); ctx.lineTo(gridX + c * cellSize, gridY + ROWS * cellSize); ctx.stroke(); }
+            for (let r = 0; r <= ROWS; r++) { ctx.beginPath(); ctx.moveTo(gridX, gridY + r * cellSize); ctx.lineTo(gridX + COLS * cellSize, gridY + r * cellSize); ctx.stroke(); }
+
+            // Board cells
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (board[r][c]) {
+                        const x = gridX + c * cellSize, y = gridY + r * cellSize;
+                        ctx.fillStyle = board[r][c];
+                        ctx.beginPath(); ctx.roundRect(x + 1, y + 1, cellSize - 2, cellSize - 2, 2); ctx.fill();
+                        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                        ctx.fillRect(x + 2, y + 2, cellSize - 4, 3);
+                    }
+                }
+            }
+
+            // Ghost piece
+            if (piece) {
+                let ghostY = piece.y;
+                while (canMove({ ...piece, y: ghostY + 1 }, 0, 0)) ghostY++;
+                if (ghostY !== piece.y) {
+                    ctx.globalAlpha = 0.15;
+                    piece.cells.forEach(([cx, cy]) => {
+                        const x = gridX + (piece.x + cx) * cellSize, y = gridY + (ghostY + cy) * cellSize;
+                        ctx.fillStyle = piece.color;
+                        ctx.beginPath(); ctx.roundRect(x + 1, y + 1, cellSize - 2, cellSize - 2, 2); ctx.fill();
+                    });
+                    ctx.globalAlpha = 1;
+                }
+
+                // Active piece
+                piece.cells.forEach(([cx, cy]) => {
+                    const x = gridX + (piece.x + cx) * cellSize, y = gridY + (piece.y + cy) * cellSize;
+                    ctx.fillStyle = piece.color;
+                    ctx.shadowBlur = 8; ctx.shadowColor = piece.color;
+                    ctx.beginPath(); ctx.roundRect(x + 1, y + 1, cellSize - 2, cellSize - 2, 2); ctx.fill();
+                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                    ctx.fillRect(x + 2, y + 2, cellSize - 4, 3);
+                    ctx.shadowBlur = 0;
+                });
+            }
+
+            // Next piece preview
+            if (nextPiece) {
+                ctx.fillStyle = '#6B7280'; ctx.font = '10px Inter, sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText('NEXT', gridX + COLS * cellSize + 30, gridY + 10);
+                nextPiece.cells.forEach(([cx, cy]) => {
+                    const x = gridX + COLS * cellSize + 10 + cx * 14, y = gridY + 20 + cy * 14;
+                    ctx.fillStyle = nextPiece.color;
+                    ctx.beginPath(); ctx.roundRect(x, y, 12, 12, 2); ctx.fill();
+                });
+            }
+
+            // Particles
+            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1;
+
+            requestAnimationFrame((t) => { update(t); draw(t); });
+        }
+
+        function gameOver() {
+            playing = false;
+            post('GAMEPLAY', 'GAME_COMPLETE', { score, lines, level, status: 'loss' });
+            overlay.style.display = 'flex';
+            document.getElementById('title').textContent = 'TOPPED OUT';
+            document.getElementById('subtitle').textContent = '';
+            const stats = document.getElementById('stats-box'); stats.style.display = 'block';
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('stat-lines').textContent = `Lines cleared: ${lines}`;
+            document.getElementById('stat-level').textContent = `Level reached: ${level + 1}`;
+            startBtn.textContent = 'RETRY';
+        }
+
+        window.addEventListener('ArcadiaBridge', (e) => { const { action } = e.detail || {}; if (action === 'LIFECYCLE_PAUSE') playing = false; if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true; });
+        draw(0);
     </script>
 </body>
 

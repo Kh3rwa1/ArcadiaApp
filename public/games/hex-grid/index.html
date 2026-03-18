@@ -6,238 +6,273 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hex Grid | Arcadia</title>
     <style>
-        :root {
-            --void: #000;
-            --accent: #A855F7;
-            --text: #F9FAFB;
-        }
-
-        body {
-            margin: 0;
-            background: var(--void);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            touch-action: none;
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        #ui {
-            position: absolute;
-            top: 50px;
-            width: 100%;
-            text-align: center;
-            pointer-events: none;
-        }
-
-        #score {
-            font-size: 42px;
-            font-weight: 900;
-            text-shadow: 0 0 20px var(--accent);
-        }
-
-        #moves {
-            font-size: 16px;
-            color: #9CA3AF;
-            margin-top: 4px;
-        }
-
-        #overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.88);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-
-        #overlay h1 {
-            font-size: 44px;
-            font-weight: 900;
-            margin: 0 0 6px;
-        }
-
-        #overlay p {
-            color: #9CA3AF;
-            margin-bottom: 32px;
-        }
-
-        .btn {
-            background: var(--accent);
-            color: #fff;
-            padding: 18px 52px;
-            border-radius: 16px;
-            font-weight: 800;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-            letter-spacing: 3px;
-            box-shadow: 0 0 30px rgba(168, 85, 247, 0.4);
-        }
+        :root { --void: #030712; --accent: #06B6D4; --accent2: #8B5CF6; }
+        body { margin: 0; background: var(--void); color: #fff; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; touch-action: none; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #ui { position: absolute; top: 50px; width: 100%; text-align: center; pointer-events: none; }
+        #score { font-size: 42px; font-weight: 900; text-shadow: 0 0 20px var(--accent); }
+        #moves-left { font-size: 13px; color: #6B7280; letter-spacing: 3px; margin-top: 2px; }
+        #combo-text { font-size: 16px; font-weight: 800; color: #F59E0B; letter-spacing: 3px; opacity: 0; transition: opacity 0.3s; margin-top: 4px; }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(8px); }
+        #overlay h1 { font-size: 42px; font-weight: 900; margin: 0 0 6px; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #overlay p { color: #9CA3AF; margin-bottom: 32px; letter-spacing: 2px; }
+        .btn { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; padding: 18px 52px; border-radius: 14px; font-weight: 800; border: none; cursor: pointer; letter-spacing: 3px; box-shadow: 0 0 30px rgba(6,182,212,0.4); }
+        .btn:active { transform: scale(0.96); }
+        #stats-box { text-align: center; margin-bottom: 20px; display: none; }
+        #stats-box .big { font-size: 56px; font-weight: 900; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #stats-box .sm { font-size: 13px; color: #6B7280; margin: 3px 0; }
     </style>
 </head>
 
 <body>
     <div id="ui">
         <div id="score">0</div>
-        <div id="moves"></div>
+        <div id="moves-left">MOVES: 30</div>
+        <div id="combo-text">CHAIN x3</div>
     </div>
     <div id="overlay">
-        <h1>HEX GRID</h1>
-        <p>CONNECT MATCHING COLORS</p>
-        <button class="btn" id="start-btn">SOLVE</button>
+        <h1 id="title">HEX GRID</h1>
+        <p id="subtitle">TAP MATCHING GROUPS · CLEAR THE BOARD</p>
+        <div id="stats-box">
+            <div class="big" id="final-score">0</div>
+            <div class="sm" id="stat-cleared">Hexes cleared: 0</div>
+            <div class="sm" id="stat-chains">Chains: 0</div>
+            <div class="sm" id="stat-best">Best chain: 0</div>
+        </div>
+        <button class="btn" id="start-btn">BEGIN</button>
     </div>
     <canvas id="game"></canvas>
+
+    <script src="../_template/arcadia-aaa-pack.js"></script>
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
         const scoreEl = document.getElementById('score');
-        const movesEl = document.getElementById('moves');
+        const movesEl = document.getElementById('moves-left');
+        const comboText = document.getElementById('combo-text');
         const overlay = document.getElementById('overlay');
         const startBtn = document.getElementById('start-btn');
 
-        let W, H, playing = false, score = 0, moves = 0, level = 1;
-        const HEX_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#A855F7', '#EC4899'];
-        let grid = [], selected = null, hexSize = 30, cols = 0, rows = 0;
+        let W, H, playing = false, score = 0;
+        let grid = [], cols = 7, rows = 8, hexR = 0, hexH = 0, gridOffX = 0, gridOffY = 0;
+        let particles = [], pops = [];
+        let moves = 30, cleared = 0, chains = 0, bestChain = 0;
+        const HEX_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
 
         function resize() {
             W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-            hexSize = Math.min(W, H) / 16;
-            buildGrid();
+            hexR = Math.min((W - 40) / (cols * 1.8), (H - 250) / (rows * 1.6));
+            hexH = hexR * Math.sqrt(3) / 2;
+            const totalW = cols * hexR * 1.75;
+            const totalH = rows * hexH * 2;
+            gridOffX = (W - totalW) / 2 + hexR;
+            gridOffY = (H - totalH) / 2 + hexR + 80;
         }
         window.addEventListener('resize', resize); resize();
 
-        function post(type, action, payload = {}) {
-            const msg = JSON.stringify({ version: '1.0', type, action, payload });
-            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
-            else window.parent?.postMessage(msg, '*');
+        function post(t, a, p = {}) {
+            const msg = JSON.stringify({ version: '1.0', type: t, action: a, payload: p });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg); else window.parent?.postMessage(msg, '*');
         }
         post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
 
-        function buildGrid() {
-            grid = [];
-            cols = Math.floor(W / (hexSize * 1.8));
-            rows = Math.floor((H - 160) / (hexSize * 1.6));
-            const offsetX = (W - cols * hexSize * 1.8) / 2 + hexSize;
-            const offsetY = 140;
-            const numColors = Math.min(3 + level, HEX_COLORS.length);
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    const x = offsetX + c * hexSize * 1.8 + (r % 2) * hexSize * 0.9;
-                    const y = offsetY + r * hexSize * 1.55;
-                    grid.push({ x, y, col: c, row: r, color: Math.floor(Math.random() * numColors), matched: false, scale: 1 });
-                }
+        function burst(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                const a = (Math.PI * 2 / count) * i; const v = 2 + Math.random() * 3;
+                particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, life: 1, decay: 0.03, color, size: 2 + Math.random() * 2 });
             }
         }
 
-        startBtn.onclick = (e) => {
-            e.stopPropagation(); playing = true; overlay.style.display = 'none';
-            score = 0; moves = 0; level = 1; selected = null;
-            buildGrid();
-            post('GAMEPLAY', 'GAME_START');
-        };
-
-        function hexDist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
-
-        function getNeighbors(hex) {
-            return grid.filter(h => !h.matched && h !== hex && hexDist(h, hex) < hexSize * 2.2);
+        function hexCenter(col, row) {
+            const x = gridOffX + col * hexR * 1.75;
+            const y = gridOffY + row * hexH * 2 + (col % 2 ? hexH : 0);
+            return { x, y };
         }
 
-        function handleTap(e) {
-            if (!playing) return;
-            const t = e.touches ? e.touches[0] : e;
-            const mx = t.clientX, my = t.clientY;
-
-            let closest = null, closestDist = hexSize * 1.2;
-            grid.forEach(h => {
-                if (h.matched) return;
-                const d = Math.hypot(mx - h.x, my - h.y);
-                if (d < closestDist) { closestDist = d; closest = h; }
-            });
-
-            if (!closest) { selected = null; return; }
-
-            if (!selected) {
-                selected = closest;
-            } else {
-                if (closest === selected) { selected = null; return; }
-                const neighbors = getNeighbors(selected);
-                if (neighbors.includes(closest) && closest.color === selected.color) {
-                    closest.matched = true; selected.matched = true;
-                    score += 50 * level; moves++;
-                    scoreEl.innerText = score;
-                    movesEl.innerText = `Moves: ${moves} · Level ${level}`;
-                    post('GAMEPLAY', 'SCORE_UPDATE', { score, level, moves });
-
-                    // Check if all matched
-                    const remaining = grid.filter(h => !h.matched);
-                    if (remaining.length <= 1) {
-                        level++; score += 200;
-                        scoreEl.innerText = score;
-                        buildGrid();
-                    }
-                }
-                selected = null;
-            }
-        }
-        window.addEventListener('touchstart', handleTap);
-        window.addEventListener('mousedown', handleTap);
-
-        function drawHex(x, y, size, fill, stroke) {
+        function drawHex(cx, cy, r, fill, stroke, glow) {
             ctx.beginPath();
             for (let i = 0; i < 6; i++) {
                 const angle = Math.PI / 3 * i - Math.PI / 6;
-                const hx = x + size * Math.cos(angle);
-                const hy = y + size * Math.sin(angle);
-                if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy);
+                const px = cx + r * Math.cos(angle), py = cy + r * Math.sin(angle);
+                i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
             }
             ctx.closePath();
+            if (glow) { ctx.shadowBlur = 15; ctx.shadowColor = glow; }
             if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-            if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
+            if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
+            ctx.shadowBlur = 0;
+        }
+
+        function initGrid() {
+            grid = [];
+            for (let c = 0; c < cols; c++) {
+                grid[c] = [];
+                for (let r = 0; r < rows; r++) {
+                    grid[c][r] = { color: Math.floor(Math.random() * HEX_COLORS.length), falling: 0, scale: 1 };
+                }
+            }
+        }
+
+        function getNeighbors(c, r) {
+            const even = c % 2 === 0;
+            const dirs = even
+                ? [[1, -1], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 0]]
+                : [[1, 0], [1, 1], [0, -1], [0, 1], [-1, 0], [-1, 1]];
+            const result = [];
+            dirs.forEach(([dc, dr]) => {
+                const nc = c + dc, nr = r + dr;
+                if (nc >= 0 && nc < cols && nr >= 0 && nr < rows) result.push([nc, nr]);
+            });
+            return result;
+        }
+
+        function findGroup(c, r) {
+            const color = grid[c][r].color;
+            if (color < 0) return [];
+            const visited = new Set();
+            const stack = [[c, r]];
+            const group = [];
+            while (stack.length) {
+                const [cc, cr] = stack.pop();
+                const key = `${cc},${cr}`;
+                if (visited.has(key)) continue;
+                visited.add(key);
+                if (grid[cc][cr].color !== color) continue;
+                group.push([cc, cr]);
+                getNeighbors(cc, cr).forEach(n => stack.push(n));
+            }
+            return group;
+        }
+
+        function handleTap(e) {
+            if (!playing || moves <= 0) return;
+            const t = e.touches ? e.touches[0] : e;
+            const mx = t.clientX, my = t.clientY;
+
+            for (let c = 0; c < cols; c++) {
+                for (let r = 0; r < rows; r++) {
+                    if (grid[c][r].color < 0) continue;
+                    const { x, y } = hexCenter(c, r);
+                    if (Math.hypot(mx - x, my - y) < hexR * 0.85) {
+                        const group = findGroup(c, r);
+                        if (group.length >= 3) {
+                            moves--;
+                            movesEl.textContent = `MOVES: ${moves}`;
+                            const color = HEX_COLORS[grid[c][r].color];
+                            const pts = group.length * group.length * 5;
+                            score += pts;
+                            cleared += group.length;
+                            chains++;
+                            if (group.length > bestChain) bestChain = group.length;
+
+                            group.forEach(([gc, gr]) => {
+                                const { x: gx, y: gy } = hexCenter(gc, gr);
+                                burst(gx, gy, color, 6);
+                                grid[gc][gr].color = -1;
+                            });
+
+                            pops.push({ x, y: y - hexR - 10, text: `+${pts}`, life: 1, vy: -2, color });
+                            comboText.textContent = `CHAIN x${group.length}`;
+                            comboText.style.opacity = '1';
+                            setTimeout(() => comboText.style.opacity = '0', 1200);
+
+                            scoreEl.textContent = score;
+                            post('GAMEPLAY', 'SCORE_UPDATE', { score, moves });
+
+                            // Drop hexes after clear
+                            setTimeout(() => {
+                                for (let cc = 0; cc < cols; cc++) {
+                                    let writeR = rows - 1;
+                                    for (let rr = rows - 1; rr >= 0; rr--) {
+                                        if (grid[cc][rr].color >= 0) {
+                                            grid[cc][writeR].color = grid[cc][rr].color;
+                                            if (writeR !== rr) grid[cc][rr].color = -1;
+                                            writeR--;
+                                        }
+                                    }
+                                    while (writeR >= 0) {
+                                        grid[cc][writeR].color = Math.floor(Math.random() * HEX_COLORS.length);
+                                        grid[cc][writeR].falling = 1;
+                                        writeR--;
+                                    }
+                                }
+                            }, 200);
+
+                            if (moves <= 0) setTimeout(gameOver, 500);
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+
+        window.addEventListener('touchstart', (e) => { e.preventDefault(); handleTap(e); }, { passive: false });
+        window.addEventListener('mousedown', handleTap);
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation(); playing = true; overlay.style.display = 'none';
+            document.getElementById('stats-box').style.display = 'none';
+            score = 0; moves = 30; cleared = 0; chains = 0; bestChain = 0;
+            particles = []; pops = [];
+            scoreEl.textContent = '0'; movesEl.textContent = 'MOVES: 30';
+            initGrid(); post('GAMEPLAY', 'GAME_START');
+        };
+
+        function update() {
+            for (let c = 0; c < cols; c++)
+                for (let r = 0; r < rows; r++)
+                    if (grid[c] && grid[c][r] && grid[c][r].falling > 0) grid[c][r].falling = Math.max(0, grid[c][r].falling - 0.06);
+
+            for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life -= p.decay; if (p.life <= 0) particles.splice(i, 1); }
+            for (let i = pops.length - 1; i >= 0; i--) { pops[i].y += pops[i].vy; pops[i].life -= 0.02; if (pops[i].life <= 0) pops.splice(i, 1); }
         }
 
         function draw() {
-            ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, W, H);
+            ctx.fillStyle = '#030712'; ctx.fillRect(0, 0, W, H);
 
-            // Grid background pattern
-            ctx.strokeStyle = 'rgba(168,85,247,0.03)';
-            grid.forEach(h => { if (!h.matched) drawHex(h.x, h.y, hexSize + 2, null, 'rgba(168,85,247,0.03)'); });
+            // Ambient
+            const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.5);
+            g.addColorStop(0, 'rgba(6,182,212,0.04)'); g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
-            // Hexes
-            grid.forEach(h => {
-                if (h.matched) return;
-                const color = HEX_COLORS[h.color];
-                const isSelected = h === selected;
-                const alpha = isSelected ? 1 : 0.7;
-                ctx.globalAlpha = alpha;
-                drawHex(h.x, h.y, hexSize * 0.85, color + '33', color);
-                if (isSelected) {
-                    ctx.shadowBlur = 20; ctx.shadowColor = color;
-                    drawHex(h.x, h.y, hexSize * 0.85, null, '#fff');
-                    ctx.shadowBlur = 0;
+            // Grid
+            for (let c = 0; c < cols; c++) {
+                for (let r = 0; r < rows; r++) {
+                    const cell = grid[c]?.[r];
+                    if (!cell || cell.color < 0) continue;
+                    const { x, y } = hexCenter(c, r);
+                    const fallOff = cell.falling * 30;
+                    const color = HEX_COLORS[cell.color];
+
+                    drawHex(x, y - fallOff, hexR * 0.9, color + '33', color + '66', null);
+                    drawHex(x, y - fallOff, hexR * 0.65, color, null, color);
                 }
-                // Inner glow
-                drawHex(h.x, h.y, hexSize * 0.4, color + '88', null);
-                ctx.globalAlpha = 1;
-            });
+            }
 
-            requestAnimationFrame(draw);
+            // Particles
+            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1;
+
+            // Pops
+            pops.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.font = `bold ${16 + (1 - p.life) * 5}px Inter, sans-serif`; ctx.textAlign = 'center'; ctx.shadowBlur = 8; ctx.shadowColor = p.color; ctx.fillText(p.text, p.x, p.y); ctx.shadowBlur = 0; }); ctx.globalAlpha = 1;
+
+            requestAnimationFrame(() => { update(); draw(); });
         }
 
-        window.addEventListener('ArcadiaBridge', (e) => {
-            const { action } = e.detail || {};
-            if (action === 'LIFECYCLE_PAUSE') playing = false;
-            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
-        });
+        function gameOver() {
+            playing = false;
+            post('GAMEPLAY', 'GAME_COMPLETE', { score, cleared, chains, bestChain, status: 'complete' });
+            overlay.style.display = 'flex';
+            document.getElementById('title').textContent = 'NO MOVES';
+            document.getElementById('subtitle').textContent = '';
+            const stats = document.getElementById('stats-box'); stats.style.display = 'block';
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('stat-cleared').textContent = `Hexes cleared: ${cleared}`;
+            document.getElementById('stat-chains').textContent = `Chains: ${chains}`;
+            document.getElementById('stat-best').textContent = `Best chain: ${bestChain}`;
+            startBtn.textContent = 'PLAY AGAIN';
+        }
 
+        window.addEventListener('ArcadiaBridge', (e) => { const { action } = e.detail || {}; if (action === 'LIFECYCLE_PAUSE') playing = false; if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true; });
         draw();
     </script>
 </body>

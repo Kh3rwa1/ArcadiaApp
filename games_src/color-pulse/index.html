@@ -6,83 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Color Pulse | Arcadia</title>
     <style>
-        :root {
-            --void: #000;
-            --text: #F9FAFB;
-        }
-
-        body {
-            margin: 0;
-            background: var(--void);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            touch-action: none;
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        #ui {
-            position: absolute;
-            top: 50px;
-            width: 100%;
-            text-align: center;
-            pointer-events: none;
-        }
-
-        #score {
-            font-size: 48px;
-            font-weight: 900;
-            letter-spacing: -2px;
-        }
-
-        #feedback {
-            font-size: 22px;
-            margin-top: 8px;
-            font-weight: 700;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        #overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.88);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-
-        #overlay h1 {
-            font-size: 44px;
-            font-weight: 900;
-            margin: 0 0 6px;
-        }
-
-        #overlay p {
-            color: #9CA3AF;
-            margin-bottom: 32px;
-        }
-
-        .btn {
-            background: #EC4899;
-            color: #fff;
-            padding: 18px 52px;
-            border-radius: 16px;
-            font-weight: 800;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-            letter-spacing: 3px;
-            box-shadow: 0 0 30px rgba(236, 72, 153, 0.4);
-        }
+        :root { --void: #000; --text: #F9FAFB; }
+        body { margin: 0; background: #000; color: var(--text); font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; touch-action: none; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #ui { position: absolute; top: 50px; width: 100%; text-align: center; pointer-events: none; }
+        #score { font-size: 48px; font-weight: 900; letter-spacing: -2px; }
+        #feedback { font-size: 22px; margin-top: 8px; font-weight: 700; opacity: 0; transition: opacity 0.2s; letter-spacing: 3px; }
+        #streak-text { font-size: 14px; font-weight: 800; color: #F59E0B; letter-spacing: 3px; opacity: 0; transition: opacity 0.3s; margin-top: 4px; }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(8px); }
+        #overlay h1 { font-size: 44px; font-weight: 900; margin: 0 0 6px; background: linear-gradient(135deg, #EC4899, #F59E0B); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #overlay p { color: #9CA3AF; margin-bottom: 32px; letter-spacing: 2px; }
+        .btn { background: linear-gradient(135deg, #EC4899, #F59E0B); color: #fff; padding: 18px 52px; border-radius: 16px; font-weight: 800; font-size: 16px; border: none; cursor: pointer; letter-spacing: 3px; box-shadow: 0 0 30px rgba(236,72,153,0.4); }
+        .btn:active { transform: scale(0.96); }
+        #stats-box { text-align: center; margin-bottom: 20px; display: none; }
+        #stats-box .big { font-size: 56px; font-weight: 900; background: linear-gradient(135deg, #EC4899, #F59E0B); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #stats-box .sm { font-size: 13px; color: #6B7280; margin: 3px 0; }
     </style>
 </head>
 
@@ -90,52 +28,80 @@
     <div id="ui">
         <div id="score">0</div>
         <div id="feedback"></div>
+        <div id="streak-text">🔥 5x STREAK</div>
     </div>
     <div id="overlay">
-        <h1>COLOR PULSE</h1>
-        <p>TAP THE MATCHING COLOR ON THE BEAT</p>
+        <h1 id="title">COLOR PULSE</h1>
+        <p id="subtitle">TAP THE MATCHING COLOR ON THE BEAT</p>
+        <div id="stats-box">
+            <div class="big" id="final-score">0</div>
+            <div class="sm" id="stat-perfect">Perfect: 0</div>
+            <div class="sm" id="stat-good">Good: 0</div>
+            <div class="sm" id="stat-miss">Missed: 0</div>
+            <div class="sm" id="stat-streak">Best streak: 0</div>
+        </div>
         <button class="btn" id="start-btn">PULSE</button>
     </div>
     <canvas id="game"></canvas>
+
+    <script src="../_template/arcadia-aaa-pack.js"></script>
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
         const scoreEl = document.getElementById('score');
         const feedbackEl = document.getElementById('feedback');
+        const streakText = document.getElementById('streak-text');
         const overlay = document.getElementById('overlay');
         const startBtn = document.getElementById('start-btn');
 
-        let W, H, playing = false, score = 0, frame = 0, streak = 0;
-        const COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B'];
-        let targetColor = 0, pulsePhase = 0, pulseSpeed = 0.02;
-        let buttons = [], rings = [];
+        let W, H, playing = false, score = 0, frame = 0;
+        let streak = 0, bestStreak = 0, perfects = 0, goods = 0, missed = 0;
+        const COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6'];
+        let targetColor = 0, pulsePhase = 0, pulseSpeed = 0.025;
+        let buttons = [], rings = [], particles = [];
+        let lives = 3, bgPulse = 0;
 
         function resize() {
             W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-            const bw = W / 4;
-            buttons = COLORS.map((c, i) => ({ color: c, x: i * bw, y: H - 100, w: bw, h: 100 }));
+            const bw = W / COLORS.length;
+            buttons = COLORS.map((c, i) => ({ color: c, x: i * bw, y: H - 90, w: bw, h: 90 }));
         }
         window.addEventListener('resize', resize); resize();
 
-        function post(type, action, payload = {}) {
-            const msg = JSON.stringify({ version: '1.0', type, action, payload });
-            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
-            else window.parent?.postMessage(msg, '*');
+        function post(t, a, p = {}) {
+            const msg = JSON.stringify({ version: '1.0', type: t, action: a, payload: p });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg); else window.parent?.postMessage(msg, '*');
         }
         post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
 
-        startBtn.onclick = (e) => {
-            e.stopPropagation(); playing = true; overlay.style.display = 'none';
-            score = 0; streak = 0; frame = 0; pulseSpeed = 0.02; nextTarget();
-            post('GAMEPLAY', 'GAME_START');
-        };
-
-        function nextTarget() { targetColor = Math.floor(Math.random() * COLORS.length); pulsePhase = 0; }
+        function burst(x, y, color, count = 15) {
+            for (let i = 0; i < count; i++) {
+                const a = (Math.PI * 2 / count) * i; const v = 2 + Math.random() * 4;
+                particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, life: 1, decay: 0.025, color, size: 2 + Math.random() * 3 });
+            }
+        }
 
         function showFeedback(text, color) {
-            feedbackEl.innerText = text; feedbackEl.style.color = color; feedbackEl.style.opacity = 1;
+            feedbackEl.innerText = text; feedbackEl.style.color = color;
+            feedbackEl.style.textShadow = `0 0 15px ${color}`;
+            feedbackEl.style.opacity = 1;
             setTimeout(() => feedbackEl.style.opacity = 0, 600);
         }
+
+        function nextTarget() {
+            let next;
+            do { next = Math.floor(Math.random() * COLORS.length); } while (next === targetColor);
+            targetColor = next; pulsePhase = 0;
+        }
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation(); playing = true; overlay.style.display = 'none';
+            document.getElementById('stats-box').style.display = 'none';
+            score = 0; streak = 0; bestStreak = 0; perfects = 0; goods = 0; missed = 0;
+            lives = 3; frame = 0; pulseSpeed = 0.025; rings = []; particles = [];
+            scoreEl.textContent = '0'; nextTarget();
+            post('GAMEPLAY', 'GAME_START');
+        };
 
         function handleTap(e) {
             if (!playing) return;
@@ -146,79 +112,120 @@
                     if (i === targetColor) {
                         const timing = Math.abs(Math.sin(pulsePhase));
                         let pts = 0;
-                        if (timing > 0.85) { pts = 100; showFeedback('PERFECT!', COLORS[i]); }
-                        else if (timing > 0.5) { pts = 50; showFeedback('GOOD', COLORS[i]); }
+                        if (timing > 0.85) { pts = 100; perfects++; showFeedback('PERFECT!', COLORS[i]); burst(W / 2, H / 2 - 40, COLORS[i], 25); }
+                        else if (timing > 0.5) { pts = 50; goods++; showFeedback('GOOD', COLORS[i]); burst(W / 2, H / 2 - 40, COLORS[i], 12); }
                         else { pts = 20; showFeedback('OK', '#9CA3AF'); }
-                        streak++; score += pts + streak * 5;
-                        scoreEl.innerText = score;
-                        rings.push({ x: W / 2, y: H / 2, r: 30, maxR: 200, color: COLORS[i], alpha: 1 });
+                        streak++; if (streak > bestStreak) bestStreak = streak;
+                        const mult = streak >= 5 ? 3 : streak >= 3 ? 2 : 1;
+                        score += pts * mult;
+                        scoreEl.textContent = score;
+                        bgPulse = 1;
+                        rings.push({ x: W / 2, y: H / 2 - 40, r: 30, color: COLORS[i], alpha: 0.8 });
+                        streakText.style.opacity = streak >= 3 ? '1' : '0';
+                        streakText.textContent = `🔥 ${streak}x STREAK`;
                         post('GAMEPLAY', 'SCORE_UPDATE', { score, streak });
-                        if (score > 500 && pulseSpeed < 0.05) pulseSpeed += 0.002;
+                        if (pulseSpeed < 0.06) pulseSpeed += 0.001;
                         nextTarget();
                     } else {
-                        streak = 0;
+                        streak = 0; missed++; lives--;
+                        streakText.style.opacity = '0';
                         showFeedback('MISS', '#EF4444');
                         score = Math.max(0, score - 30);
-                        scoreEl.innerText = score;
+                        scoreEl.textContent = score;
+                        if (lives <= 0) { gameOver(); return; }
                     }
                 }
             });
         }
-        window.addEventListener('touchstart', handleTap);
+        window.addEventListener('touchstart', (e) => { e.preventDefault(); handleTap(e); }, { passive: false });
         window.addEventListener('mousedown', handleTap);
 
         function update() {
             if (!playing) return;
-            frame++;
-            pulsePhase += pulseSpeed;
-            rings.forEach((r, i) => { r.r += 4; r.alpha -= 0.02; if (r.alpha <= 0) rings.splice(i, 1); });
+            frame++; pulsePhase += pulseSpeed;
+            if (bgPulse > 0) bgPulse = Math.max(0, bgPulse - 0.025);
+            for (let i = rings.length - 1; i >= 0; i--) { rings[i].r += 4; rings[i].alpha -= 0.018; if (rings[i].alpha <= 0) rings.splice(i, 1); }
+            for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life -= p.decay; if (p.life <= 0) particles.splice(i, 1); }
         }
 
         function draw() {
             ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
 
-            // Center pulsing circle with target color
+            // BG ambient
+            if (bgPulse > 0) {
+                const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.5);
+                g.addColorStop(0, COLORS[targetColor] + Math.floor(bgPulse * 30).toString(16).padStart(2, '0'));
+                g.addColorStop(1, 'transparent');
+                ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+            }
+
+            // Center pulse
             const pulse = Math.abs(Math.sin(pulsePhase));
-            const radius = 60 + pulse * 40;
+            const radius = 60 + pulse * 50;
             ctx.fillStyle = COLORS[targetColor];
-            ctx.globalAlpha = 0.2 + pulse * 0.6;
-            ctx.shadowBlur = 40 + pulse * 30; ctx.shadowColor = COLORS[targetColor];
+            ctx.globalAlpha = 0.15 + pulse * 0.6;
+            ctx.shadowBlur = 50 + pulse * 40; ctx.shadowColor = COLORS[targetColor];
             ctx.beginPath(); ctx.arc(W / 2, H / 2 - 40, radius, 0, Math.PI * 2); ctx.fill();
             ctx.globalAlpha = 1; ctx.shadowBlur = 0;
 
-            // Expanding rings
-            rings.forEach(r => {
-                ctx.globalAlpha = r.alpha; ctx.strokeStyle = r.color; ctx.lineWidth = 2;
-                ctx.beginPath(); ctx.arc(r.x, r.y - 40, r.r, 0, Math.PI * 2); ctx.stroke();
-            });
-            ctx.globalAlpha = 1;
+            // Inner ring timing guide
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(W / 2, H / 2 - 40, 55, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(W / 2, H / 2 - 40, 105, 0, Math.PI * 2); ctx.stroke();
 
-            // Streak badge
-            if (streak > 1) {
-                ctx.fillStyle = '#F59E0B'; ctx.font = '16px Inter, sans-serif'; ctx.textAlign = 'center';
-                ctx.fillText(`🔥 ${streak}x`, W / 2, H / 2 + 60);
-            }
+            // Rings
+            rings.forEach(r => {
+                ctx.globalAlpha = r.alpha; ctx.strokeStyle = r.color; ctx.lineWidth = 3;
+                ctx.shadowBlur = 10; ctx.shadowColor = r.color;
+                ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2); ctx.stroke();
+                ctx.shadowBlur = 0;
+            }); ctx.globalAlpha = 1;
+
+            // Lives
+            ctx.fillStyle = '#EF4444'; ctx.font = 'bold 14px Inter, sans-serif'; ctx.textAlign = 'right';
+            for (let i = 0; i < 3; i++) {
+                ctx.globalAlpha = i < lives ? 0.8 : 0.15;
+                ctx.fillText('♥', W - 20 - i * 22, 65);
+            } ctx.globalAlpha = 1;
 
             // Bottom buttons
             buttons.forEach((b, i) => {
-                ctx.fillStyle = i === targetColor ? b.color : `${b.color}44`;
-                ctx.fillRect(b.x + 4, b.y + 4, b.w - 8, b.h - 8);
-                if (i === targetColor) {
+                const active = i === targetColor;
+                ctx.fillStyle = active ? b.color : b.color + '22';
+                ctx.beginPath(); ctx.roundRect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 8); ctx.fill();
+                if (active) {
                     ctx.shadowBlur = 20; ctx.shadowColor = b.color;
-                    ctx.fillRect(b.x + 4, b.y + 4, b.w - 8, b.h - 8);
+                    ctx.beginPath(); ctx.roundRect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 8); ctx.fill();
                     ctx.shadowBlur = 0;
+                    // Label
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'center';
+                    ctx.fillText('TAP', b.x + b.w / 2, b.y + b.h / 2 + 4);
                 }
             });
+
+            // Particles
+            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1;
 
             requestAnimationFrame(() => { update(); draw(); });
         }
 
-        window.addEventListener('ArcadiaBridge', (e) => {
-            const { action } = e.detail || {};
-            if (action === 'LIFECYCLE_PAUSE') playing = false;
-            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
-        });
+        function gameOver() {
+            playing = false;
+            post('GAMEPLAY', 'GAME_COMPLETE', { score, perfects, goods, missed, bestStreak, status: 'loss' });
+            overlay.style.display = 'flex';
+            document.getElementById('title').textContent = 'FLATLINED';
+            document.getElementById('subtitle').textContent = '';
+            const stats = document.getElementById('stats-box'); stats.style.display = 'block';
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('stat-perfect').textContent = `Perfect: ${perfects}`;
+            document.getElementById('stat-good').textContent = `Good: ${goods}`;
+            document.getElementById('stat-miss').textContent = `Missed: ${missed}`;
+            document.getElementById('stat-streak').textContent = `Best streak: ${bestStreak}x`;
+            startBtn.textContent = 'RETRY';
+        }
 
+        window.addEventListener('ArcadiaBridge', (e) => { const { action } = e.detail || {}; if (action === 'LIFECYCLE_PAUSE') playing = false; if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true; });
         draw();
     </script>
 </body>

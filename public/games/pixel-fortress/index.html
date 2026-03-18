@@ -6,276 +6,245 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pixel Fortress | Arcadia</title>
     <style>
-        :root {
-            --void: #000;
-            --accent: #10B981;
-            --text: #F9FAFB;
-        }
-
-        body {
-            margin: 0;
-            background: var(--void);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            touch-action: none;
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        #ui {
-            position: absolute;
-            top: 50px;
-            left: 20px;
-            pointer-events: none;
-        }
-
-        #score {
-            font-size: 32px;
-            font-weight: 900;
-        }
-
-        #wave {
-            font-size: 14px;
-            color: var(--accent);
-            letter-spacing: 3px;
-            text-transform: uppercase;
-        }
-
-        #hp-bar {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 120px;
-            height: 8px;
-            background: #1F2937;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        #hp-fill {
-            width: 100%;
-            height: 100%;
-            background: var(--accent);
-            transition: width 0.3s;
-            border-radius: 4px;
-        }
-
-        #overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.88);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-
-        #overlay h1 {
-            font-size: 42px;
-            font-weight: 900;
-            margin: 0 0 4px;
-        }
-
-        #overlay p {
-            color: #9CA3AF;
-            margin-bottom: 32px;
-        }
-
-        .btn {
-            background: var(--accent);
-            color: #000;
-            padding: 18px 52px;
-            border-radius: 14px;
-            font-weight: 800;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-            letter-spacing: 2px;
-            box-shadow: 0 0 25px rgba(16, 185, 129, 0.4);
-        }
+        :root { --void: #030712; --accent: #EF4444; --accent2: #F59E0B; }
+        body { margin: 0; background: var(--void); color: #fff; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; touch-action: none; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #ui { position: absolute; top: 50px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; pointer-events: none; }
+        #score { font-size: 36px; font-weight: 900; text-shadow: 0 0 20px var(--accent); }
+        #wave-text { font-size: 14px; font-weight: 800; color: var(--accent2); letter-spacing: 3px; text-align: right; line-height: 1.6; }
+        #hp-outer { position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); width: 140px; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; pointer-events: none; }
+        #hp-inner { width: 100%; height: 100%; background: linear-gradient(90deg, #EF4444, #F59E0B); border-radius: 4px; transition: width 0.3s; }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(8px); }
+        #overlay h1 { font-size: 42px; font-weight: 900; margin: 0 0 6px; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #overlay p { color: #9CA3AF; margin-bottom: 32px; letter-spacing: 2px; }
+        .btn { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #000; padding: 18px 52px; border-radius: 14px; font-weight: 800; border: none; cursor: pointer; letter-spacing: 3px; box-shadow: 0 0 30px rgba(239,68,68,0.4); }
+        .btn:active { transform: scale(0.96); }
+        #stats-box { text-align: center; margin-bottom: 20px; display: none; }
+        #stats-box .big { font-size: 56px; font-weight: 900; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #stats-box .sm { font-size: 13px; color: #6B7280; margin: 3px 0; }
     </style>
 </head>
 
 <body>
     <div id="ui">
-        <div id="wave">WAVE 1</div>
         <div id="score">0</div>
+        <div id="wave-text">WAVE 1</div>
     </div>
-    <div id="hp-bar">
-        <div id="hp-fill"></div>
-    </div>
+    <div id="hp-outer"><div id="hp-inner"></div></div>
     <div id="overlay">
-        <h1>PIXEL FORTRESS</h1>
-        <p>Tap to place turrets · Defend the core</p>
+        <h1 id="title">PIXEL FORTRESS</h1>
+        <p id="subtitle">TAP ENEMIES TO DEFEND YOUR FORTRESS</p>
+        <div id="stats-box">
+            <div class="big" id="final-score">0</div>
+            <div class="sm" id="stat-kills">Enemies defeated: 0</div>
+            <div class="sm" id="stat-wave">Wave survived: 0</div>
+        </div>
         <button class="btn" id="start-btn">DEFEND</button>
     </div>
     <canvas id="game"></canvas>
+
+    <script src="../_template/arcadia-aaa-pack.js"></script>
     <script>
         const canvas = document.getElementById('game');
         const ctx = canvas.getContext('2d');
         const scoreEl = document.getElementById('score');
-        const waveEl = document.getElementById('wave');
-        const hpFill = document.getElementById('hp-fill');
+        const waveTextEl = document.getElementById('wave-text');
+        const hpInner = document.getElementById('hp-inner');
         const overlay = document.getElementById('overlay');
         const startBtn = document.getElementById('start-btn');
 
-        let W, H, playing = false, score = 0, wave = 1, hp = 100, frame = 0;
-        let turrets = [], enemies = [], bullets = [], particles = [];
-        const corePos = { x: 0, y: 0 };
+        let W, H, playing = false, frame = 0, score = 0;
+        let enemies = [], particles = [], pops = [];
+        let fortressHP = 100, wave = 1, kills = 0;
+        let enemiesToSpawn = 0, enemiesSpawned = 0;
+        let shakeX = 0, shakeY = 0, shakeDur = 0;
 
-        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; corePos.x = W / 2; corePos.y = H / 2; }
+        function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        function post(type, action, payload = {}) {
-            const msg = JSON.stringify({ version: '1.0', type, action, payload });
-            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
-            else window.parent?.postMessage(msg, '*');
+        function post(t, a, p = {}) {
+            const msg = JSON.stringify({ version: '1.0', type: t, action: a, payload: p });
+            if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg); else window.parent?.postMessage(msg, '*');
         }
         post('LIFECYCLE', 'HEARTBEAT_READY', { engine: 'canvas' });
 
-        startBtn.onclick = (e) => { e.stopPropagation(); playing = true; overlay.style.display = 'none'; score = 0; wave = 1; hp = 100; turrets = []; enemies = []; bullets = []; particles = []; post('GAMEPLAY', 'GAME_START'); };
-
-        function placeTurret(e) {
-            if (!playing) return;
-            const t = e.touches ? e.touches[0] : e;
-            const x = t.clientX, y = t.clientY;
-            if (turrets.length < 8 + wave) {
-                turrets.push({ x, y, cooldown: 0, range: 120 + wave * 5 });
+        function shake(i, d) { shakeDur = d; shakeX = (Math.random() - 0.5) * i; shakeY = (Math.random() - 0.5) * i; }
+        function burst(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                const a = Math.random() * Math.PI * 2; const v = 1.5 + Math.random() * 3;
+                particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, life: 1, decay: 0.03, color, size: 2 + Math.random() * 2 });
             }
         }
-        window.addEventListener('touchstart', placeTurret);
-        window.addEventListener('mousedown', placeTurret);
 
         function spawnEnemy() {
-            const side = Math.random() * 4 | 0;
+            const side = Math.floor(Math.random() * 4);
             let x, y;
             if (side === 0) { x = Math.random() * W; y = -20; }
             else if (side === 1) { x = W + 20; y = Math.random() * H; }
             else if (side === 2) { x = Math.random() * W; y = H + 20; }
             else { x = -20; y = Math.random() * H; }
-            enemies.push({ x, y, hp: 2 + wave, speed: 1 + wave * 0.15 + Math.random() * 0.5, maxHp: 2 + wave });
+
+            const types = ['grunt', 'fast', 'tank'];
+            const weights = wave < 3 ? [0.7, 0.3, 0] : wave < 6 ? [0.4, 0.35, 0.25] : [0.3, 0.3, 0.4];
+            let r = Math.random(), type = 'grunt';
+            for (let i = 0; i < types.length; i++) { r -= weights[i]; if (r <= 0) { type = types[i]; break; } }
+
+            const speed = type === 'fast' ? 1.8 : type === 'tank' ? 0.6 : 1.1;
+            const hp = type === 'tank' ? 3 : 1;
+            const size = type === 'tank' ? 18 : type === 'fast' ? 10 : 13;
+            const color = type === 'tank' ? '#3B82F6' : type === 'fast' ? '#10B981' : '#EF4444';
+            const damage = type === 'tank' ? 15 : type === 'fast' ? 5 : 8;
+
+            enemies.push({ x, y, size, speed: speed + wave * 0.05, hp, maxHp: hp, color, type, damage });
+            enemiesSpawned++;
         }
+
+        function handleTap(e) {
+            if (!playing) return;
+            const t = e.touches ? e.touches[0] : e;
+            const mx = t.clientX, my = t.clientY;
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const en = enemies[i];
+                if (Math.hypot(mx - en.x, my - en.y) < en.size + 20) {
+                    en.hp--;
+                    if (en.hp <= 0) {
+                        const pts = en.type === 'tank' ? 30 : en.type === 'fast' ? 20 : 10;
+                        score += pts; kills++;
+                        burst(en.x, en.y, en.color, 15);
+                        pops.push({ x: en.x, y: en.y - 15, text: `+${pts}`, life: 0.8, vy: -2, color: en.color });
+                        enemies.splice(i, 1);
+                        scoreEl.textContent = score;
+                        if (kills % 10 === 0) post('GAMEPLAY', 'SCORE_UPDATE', { score, wave });
+                    } else {
+                        burst(en.x, en.y, '#fff', 5);
+                    }
+                    return;
+                }
+            }
+        }
+        window.addEventListener('touchstart', (e) => { e.preventDefault(); handleTap(e); }, { passive: false });
+        window.addEventListener('mousedown', handleTap);
+
+        startBtn.onclick = (e) => {
+            e.stopPropagation(); playing = true; overlay.style.display = 'none';
+            document.getElementById('stats-box').style.display = 'none';
+            score = 0; wave = 1; kills = 0; fortressHP = 100; frame = 0;
+            enemies = []; particles = []; pops = [];
+            enemiesToSpawn = 5; enemiesSpawned = 0;
+            scoreEl.textContent = '0'; hpInner.style.width = '100%';
+            waveTextEl.textContent = 'WAVE 1';
+            post('GAMEPLAY', 'GAME_START');
+        };
 
         function update() {
             if (!playing) return;
             frame++;
 
-            if (frame % Math.max(20, 60 - wave * 5) === 0) spawnEnemy();
-            if (enemies.length === 0 && frame > 120 * wave) { wave++; waveEl.innerText = `WAVE ${wave}`; }
+            const spawnRate = Math.max(15, 50 - wave * 3);
+            if (frame % spawnRate === 0 && enemiesSpawned < enemiesToSpawn) spawnEnemy();
 
-            // Turrets shoot
-            turrets.forEach(t => {
-                t.cooldown--;
-                if (t.cooldown <= 0) {
-                    let closest = null, closestDist = t.range;
-                    enemies.forEach(e => {
-                        const d = Math.hypot(e.x - t.x, e.y - t.y);
-                        if (d < closestDist) { closestDist = d; closest = e; }
-                    });
-                    if (closest) {
-                        const angle = Math.atan2(closest.y - t.y, closest.x - t.x);
-                        bullets.push({ x: t.x, y: t.y, vx: Math.cos(angle) * 6, vy: Math.sin(angle) * 6, life: 40 });
-                        t.cooldown = 20;
-                    }
-                }
-            });
+            // Wave complete check
+            if (enemiesSpawned >= enemiesToSpawn && enemies.length === 0) {
+                wave++; enemiesToSpawn = 5 + wave * 3; enemiesSpawned = 0;
+                waveTextEl.textContent = `WAVE ${wave}`;
+                pops.push({ x: W / 2, y: H / 2, text: `WAVE ${wave}`, life: 1.5, vy: -1, color: '#F59E0B' });
+                fortressHP = Math.min(100, fortressHP + 10);
+                hpInner.style.width = fortressHP + '%';
+            }
 
-            // Bullets
-            bullets.forEach((b, i) => {
-                b.x += b.vx; b.y += b.vy; b.life--;
-                if (b.life <= 0) { bullets.splice(i, 1); return; }
-                enemies.forEach((e, j) => {
-                    if (Math.hypot(e.x - b.x, e.y - b.y) < 15) {
-                        e.hp--;
-                        bullets.splice(i, 1);
-                        if (e.hp <= 0) {
-                            score += 10 * wave;
-                            scoreEl.innerText = score;
-                            for (let k = 0; k < 5; k++) particles.push({ x: e.x, y: e.y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, life: 1, color: '#10B981' });
-                            enemies.splice(j, 1);
-                            post('GAMEPLAY', 'SCORE_UPDATE', { score, wave });
-                        }
-                    }
-                });
-            });
+            const fortX = W / 2, fortY = H / 2;
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const en = enemies[i];
+                const dx = fortX - en.x, dy = fortY - en.y;
+                const dist = Math.hypot(dx, dy);
+                en.x += (dx / dist) * en.speed;
+                en.y += (dy / dist) * en.speed;
 
-            // Enemies move toward core
-            enemies.forEach((e, i) => {
-                const angle = Math.atan2(corePos.y - e.y, corePos.x - e.x);
-                e.x += Math.cos(angle) * e.speed;
-                e.y += Math.sin(angle) * e.speed;
-                if (Math.hypot(corePos.x - e.x, corePos.y - e.y) < 30) {
-                    hp -= 10; hpFill.style.width = hp + '%';
+                if (dist < 35) {
+                    fortressHP -= en.damage;
+                    hpInner.style.width = Math.max(0, fortressHP) + '%';
+                    shake(6, 8);
+                    burst(en.x, en.y, '#EF4444', 8);
                     enemies.splice(i, 1);
-                    if (hp <= 0) gameOver();
+                    if (fortressHP <= 0) { gameOver(); return; }
                 }
-            });
+            }
 
-            particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life -= 0.03; if (p.life <= 0) particles.splice(i, 1); });
+            if (shakeDur > 0) { shakeDur--; shakeX *= 0.85; shakeY *= 0.85; } else { shakeX = shakeY = 0; }
+            for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life -= p.decay; if (p.life <= 0) particles.splice(i, 1); }
+            for (let i = pops.length - 1; i >= 0; i--) { pops[i].y += pops[i].vy; pops[i].life -= 0.02; if (pops[i].life <= 0) pops.splice(i, 1); }
         }
 
         function draw() {
-            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+            ctx.save(); ctx.translate(shakeX, shakeY);
+            ctx.fillStyle = '#030712'; ctx.fillRect(-5, -5, W + 10, H + 10);
 
-            // Grid
-            ctx.strokeStyle = 'rgba(16,185,129,0.04)';
-            for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-            for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+            const fortX = W / 2, fortY = H / 2;
 
-            // Core
-            ctx.fillStyle = '#10B981'; ctx.shadowBlur = 30; ctx.shadowColor = '#10B981';
-            ctx.beginPath(); ctx.arc(corePos.x, corePos.y, 18, 0, Math.PI * 2); ctx.fill();
+            // Defense rings
+            ctx.strokeStyle = 'rgba(239,68,68,0.06)'; ctx.lineWidth = 1;
+            [80, 130, 180].forEach(r => { ctx.beginPath(); ctx.arc(fortX, fortY, r, 0, Math.PI * 2); ctx.stroke(); });
+
+            // Fortress
+            ctx.fillStyle = '#F59E0B'; ctx.shadowBlur = 25; ctx.shadowColor = '#F59E0B';
+            ctx.beginPath();
+            ctx.moveTo(fortX, fortY - 25); ctx.lineTo(fortX + 22, fortY + 18); ctx.lineTo(fortX - 22, fortY + 18); ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.beginPath();
+            ctx.moveTo(fortX, fortY - 18); ctx.lineTo(fortX + 12, fortY + 12); ctx.lineTo(fortX - 12, fortY + 12); ctx.closePath();
+            ctx.fill();
             ctx.shadowBlur = 0;
 
-            // Turrets
-            turrets.forEach(t => {
-                ctx.fillStyle = '#3B82F6'; ctx.shadowBlur = 10; ctx.shadowColor = '#3B82F6';
-                ctx.fillRect(t.x - 8, t.y - 8, 16, 16);
-                ctx.shadowBlur = 0;
-                ctx.strokeStyle = 'rgba(59,130,246,0.1)';
-                ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); ctx.stroke();
-            });
+            // HP glow around fortress
+            const hpPct = fortressHP / 100;
+            ctx.strokeStyle = hpPct > 0.5 ? `rgba(16,185,129,${hpPct * 0.3})` : `rgba(239,68,68,${(1 - hpPct) * 0.4})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(fortX, fortY, 30, 0, Math.PI * 2 * hpPct); ctx.stroke();
 
             // Enemies
-            enemies.forEach(e => {
-                const ratio = e.hp / e.maxHp;
-                ctx.fillStyle = `hsl(0, 80%, ${40 + ratio * 20}%)`;
-                ctx.beginPath(); ctx.arc(e.x, e.y, 10, 0, Math.PI * 2); ctx.fill();
+            enemies.forEach(en => {
+                ctx.fillStyle = en.color; ctx.shadowBlur = 8; ctx.shadowColor = en.color;
+                if (en.type === 'tank') {
+                    ctx.beginPath(); ctx.roundRect(en.x - en.size, en.y - en.size, en.size * 2, en.size * 2, 3); ctx.fill();
+                    if (en.hp < en.maxHp) {
+                        ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(en.x - 10, en.y - en.size - 6, 20, 3);
+                        ctx.fillStyle = en.color; ctx.fillRect(en.x - 10, en.y - en.size - 6, 20 * (en.hp / en.maxHp), 3);
+                    }
+                } else if (en.type === 'fast') {
+                    const angle = Math.atan2(fortY - en.y, fortX - en.x);
+                    ctx.save(); ctx.translate(en.x, en.y); ctx.rotate(angle);
+                    ctx.beginPath(); ctx.moveTo(en.size, 0); ctx.lineTo(-en.size, -en.size * 0.7); ctx.lineTo(-en.size * 0.4, 0); ctx.lineTo(-en.size, en.size * 0.7); ctx.closePath(); ctx.fill();
+                    ctx.restore();
+                } else {
+                    ctx.beginPath(); ctx.arc(en.x, en.y, en.size, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.shadowBlur = 0;
             });
 
-            // Bullets
-            ctx.fillStyle = '#F59E0B';
-            bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI * 2); ctx.fill(); });
-
             // Particles
-            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill(); });
-            ctx.globalAlpha = 1;
+            particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1;
+            pops.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.font = `bold ${15 + (1 - p.life) * 4}px Inter, sans-serif`; ctx.textAlign = 'center'; ctx.fillText(p.text, p.x, p.y); }); ctx.globalAlpha = 1;
 
+            ctx.restore();
             requestAnimationFrame(() => { update(); draw(); });
         }
 
         function gameOver() {
             playing = false;
-            post('GAMEPLAY', 'GAME_COMPLETE', { score, wave, status: 'loss' });
+            post('GAMEPLAY', 'GAME_COMPLETE', { score, kills, wave, status: 'loss' });
             overlay.style.display = 'flex';
-            overlay.querySelector('h1').innerText = 'FORTRESS FALLEN';
-            overlay.querySelector('p').innerText = `Wave ${wave} · Score ${score}`;
-            startBtn.innerText = 'REBUILD';
+            document.getElementById('title').textContent = 'FORTRESS FELL';
+            document.getElementById('subtitle').textContent = '';
+            const stats = document.getElementById('stats-box'); stats.style.display = 'block';
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('stat-kills').textContent = `Enemies defeated: ${kills}`;
+            document.getElementById('stat-wave').textContent = `Wave survived: ${wave}`;
+            startBtn.textContent = 'REBUILD';
         }
 
-        window.addEventListener('ArcadiaBridge', (e) => {
-            const { action } = e.detail || {};
-            if (action === 'LIFECYCLE_PAUSE') playing = false;
-            if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true;
-        });
-
+        window.addEventListener('ArcadiaBridge', (e) => { const { action } = e.detail || {}; if (action === 'LIFECYCLE_PAUSE') playing = false; if (action === 'LIFECYCLE_RESUME' && overlay.style.display === 'none') playing = true; });
         draw();
     </script>
 </body>
