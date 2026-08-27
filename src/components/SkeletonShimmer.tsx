@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radii } from '../theme';
+import { radii } from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

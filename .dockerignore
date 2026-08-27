@@ -1,0 +1,17 @@
+node_modules
+.expo
+dist
+build
+ArcadiaApp
+mobile
+server/node_modules
+__tests__
+__mocks__
+coverage
+.git
+*.md
+.eslintrc*
+.prettierrc*
+.editorconfig
+jest.config.js
+tsconfig.json

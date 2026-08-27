@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
-import { colors, typography, spacing, motion } from '../theme';
+import { typography, spacing, motion } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function SplashScreen({ onComplete }: Props) {
+    const { colors } = useTheme();
     const logoScale = useRef(new Animated.Value(0.6)).current;
     const logoOpacity = useRef(new Animated.Value(0)).current;
     const glowScale = useRef(new Animated.Value(0.3)).current;
@@ -16,6 +18,57 @@ export default function SplashScreen({ onComplete }: Props) {
     const textOpacity = useRef(new Animated.Value(0)).current;
     const textScale = useRef(new Animated.Value(0.8)).current;
     const taglineOpacity = useRef(new Animated.Value(0)).current;
+
+    const styles = useMemo(() => StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: colors.void,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        glow: {
+            position: 'absolute',
+            width: 300,
+            height: 300,
+            borderRadius: 150,
+            backgroundColor: colors.accentGlow,
+        },
+        logoContainer: {
+            marginBottom: spacing.xl,
+        },
+        logo: {
+            width: 100,
+            height: 100,
+            borderRadius: 28,
+            backgroundColor: colors.accent,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: colors.accent,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.6,
+            shadowRadius: 40,
+        },
+        logoText: {
+            fontSize: 48,
+            fontWeight: '800',
+            color: colors.textPrimary,
+        },
+        brandContainer: {
+            alignItems: 'center',
+            gap: spacing.sm,
+        },
+        brandName: {
+            fontSize: 28,
+            fontWeight: '800',
+            letterSpacing: 12,
+            color: colors.textPrimary,
+        },
+        brandTagline: {
+            ...typography.labelSmall,
+            color: colors.textSecondary,
+            letterSpacing: 4,
+        },
+    }), [colors]);
 
     useEffect(() => {
         // Optimized cinematic entrance - faster and smoother (2.5s total)
@@ -106,54 +159,3 @@ export default function SplashScreen({ onComplete }: Props) {
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: colors.void,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    glow: {
-        position: 'absolute',
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-        backgroundColor: colors.accentGlow,
-    },
-    logoContainer: {
-        marginBottom: spacing.xl,
-    },
-    logo: {
-        width: 100,
-        height: 100,
-        borderRadius: 28,
-        backgroundColor: colors.accent,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: colors.accent,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.6,
-        shadowRadius: 40,
-    },
-    logoText: {
-        fontSize: 48,
-        fontWeight: '800',
-        color: colors.textPrimary,
-    },
-    brandContainer: {
-        alignItems: 'center',
-        gap: spacing.sm,
-    },
-    brandName: {
-        fontSize: 28,
-        fontWeight: '800',
-        letterSpacing: 12,
-        color: colors.textPrimary,
-    },
-    brandTagline: {
-        ...typography.labelSmall,
-        color: colors.textSecondary,
-        letterSpacing: 4,
-    },
-});

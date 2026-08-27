@@ -1,18 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 import { GameProgress } from '../types';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// GAME PROGRESS SERVICE
-// Handles save/load with offline-first strategy and background sync
-// ═══════════════════════════════════════════════════════════════════════════
-
-const TUNNEL_URL = 'https://durra-api-2025.loca.lt';
-const LOCAL_IP = '192.168.0.101';
-
-const API_BASE = Platform.OS === 'web'
-    ? 'http://localhost:8000'
-    : `http://${LOCAL_IP}:8000`;
+import { getLaravelApiBase } from '../config/environment';
 
 const STORAGE_KEYS = {
     PROGRESS_PREFIX: 'game_progress_',
@@ -29,13 +17,7 @@ interface SyncQueueItem {
     timestamp: number;
 }
 
-/**
- * Game Progress Service - Offline-first with background sync
- */
 export const gameProgressService = {
-    /**
-     * Get user UUID (create if not exists)
-     */
     async getUserId(): Promise<string> {
         let userId = await AsyncStorage.getItem(STORAGE_KEYS.USER_UUID);
         if (!userId) {
@@ -46,38 +28,27 @@ export const gameProgressService = {
         return userId;
     },
 
-    /**
-     * Load progress for a game (local first, then server)
-     */
     async loadProgress(gameId: string): Promise<GameProgress | null> {
         try {
-            // 1. Try local storage first (fast)
             const localData = await AsyncStorage.getItem(STORAGE_KEYS.PROGRESS_PREFIX + gameId);
             const localProgress: GameProgress | null = localData ? JSON.parse(localData) : null;
 
-            // 2. Try to fetch from server (background update)
             const userId = await this.getUserId();
             const serverProgress = await this.fetchProgressFromServer(gameId, userId);
 
             if (serverProgress) {
-                // Merge: take highest scores, merge state
                 const merged = this.mergeProgress(localProgress, serverProgress);
                 await this.saveProgressLocally(gameId, merged);
                 return merged;
             }
 
             return localProgress;
-        } catch (e) {
-            console.warn('[GameProgress] Load failed:', e);
-            // Fall back to local only
+        } catch {
             const localData = await AsyncStorage.getItem(STORAGE_KEYS.PROGRESS_PREFIX + gameId);
             return localData ? JSON.parse(localData) : null;
         }
     },
 
-    /**
-     * Save progress (local immediately, queue for server sync)
-     */
     async saveProgress(
         gameId: string,
         level: number,
@@ -86,10 +57,8 @@ export const gameProgressService = {
         durationMs: number = 0
     ): Promise<void> {
         try {
-            // 1. Load existing progress
             const existing = await this.loadProgressLocally(gameId);
 
-            // 2. Create updated progress
             const updated: GameProgress = {
                 gameId,
                 currentLevel: Math.max(existing?.currentLevel || 1, level),
@@ -101,37 +70,23 @@ export const gameProgressService = {
                 lastPlayedAt: new Date().toISOString(),
             };
 
-            // 3. Save locally (immediate)
             await this.saveProgressLocally(gameId, updated);
 
-            // 4. Queue for server sync
             await this.addToSyncQueue({
-                gameId,
-                level,
-                score,
-                state,
-                durationMs,
-                timestamp: Date.now(),
+                gameId, level, score, state, durationMs, timestamp: Date.now(),
             });
 
-            // 5. Attempt background sync
             this.syncToServer();
-        } catch (e) {
-            console.warn('[GameProgress] Save failed:', e);
+        } catch {
+            // Progress saved locally at minimum
         }
     },
 
-    /**
-     * Load progress from local storage only
-     */
     async loadProgressLocally(gameId: string): Promise<GameProgress | null> {
         const data = await AsyncStorage.getItem(STORAGE_KEYS.PROGRESS_PREFIX + gameId);
         return data ? JSON.parse(data) : null;
     },
 
-    /**
-     * Save progress to local storage
-     */
     async saveProgressLocally(gameId: string, progress: GameProgress): Promise<void> {
         await AsyncStorage.setItem(
             STORAGE_KEYS.PROGRESS_PREFIX + gameId,
@@ -139,11 +94,9 @@ export const gameProgressService = {
         );
     },
 
-    /**
-     * Fetch progress from server
-     */
     async fetchProgressFromServer(gameId: string, userId: string): Promise<GameProgress | null> {
         try {
+            const API_BASE = getLaravelApiBase();
             const response = await fetch(
                 `${API_BASE}/api/v1/progress/${gameId}?user_uuid=${userId}`,
                 { method: 'GET', headers: { 'Content-Type': 'application/json' } }
@@ -170,9 +123,6 @@ export const gameProgressService = {
         }
     },
 
-    /**
-     * Merge local and server progress (take best of both)
-     */
     mergeProgress(local: GameProgress | null, server: GameProgress | null): GameProgress {
         if (!local) return server!;
         if (!server) return local;
@@ -182,7 +132,7 @@ export const gameProgressService = {
             currentLevel: Math.max(local.currentLevel, server.currentLevel),
             highScore: Math.max(local.highScore, server.highScore),
             totalScore: Math.max(local.totalScore, server.totalScore),
-            state: { ...(server.state || {}), ...(local.state || {}) }, // Local wins for state
+            state: { ...(server.state || {}), ...(local.state || {}) },
             playCount: Math.max(local.playCount, server.playCount),
             totalTimeMs: Math.max(local.totalTimeMs, server.totalTimeMs),
             lastPlayedAt: local.lastPlayedAt && server.lastPlayedAt
@@ -191,42 +141,30 @@ export const gameProgressService = {
         };
     },
 
-    /**
-     * Add item to sync queue
-     */
     async addToSyncQueue(item: SyncQueueItem): Promise<void> {
         const queue = await this.getSyncQueue();
         queue.push(item);
         await AsyncStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(queue));
     },
 
-    /**
-     * Get sync queue
-     */
     async getSyncQueue(): Promise<SyncQueueItem[]> {
         const data = await AsyncStorage.getItem(STORAGE_KEYS.SYNC_QUEUE);
         return data ? JSON.parse(data) : [];
     },
 
-    /**
-     * Clear sync queue
-     */
     async clearSyncQueue(): Promise<void> {
         await AsyncStorage.removeItem(STORAGE_KEYS.SYNC_QUEUE);
     },
 
-    /**
-     * Sync pending items to server
-     */
     async syncToServer(): Promise<void> {
         try {
             const queue = await this.getSyncQueue();
             if (queue.length === 0) return;
 
             const userId = await this.getUserId();
+            const API_BASE = getLaravelApiBase();
 
-            // Group by game for batch efficiency
-            const progressByGame = queue.reduce((acc, item) => {
+            const progressByGame = queue.reduce<Record<string, { level: number; score: number; state: Record<string, unknown>; durationMs: number }>>((acc, item) => {
                 if (!acc[item.gameId]) {
                     acc[item.gameId] = { level: 0, score: 0, state: {}, durationMs: 0 };
                 }
@@ -237,9 +175,8 @@ export const gameProgressService = {
                     acc[item.gameId].state = { ...acc[item.gameId].state, ...item.state };
                 }
                 return acc;
-            }, {} as Record<string, { level: number; score: number; state: Record<string, unknown>; durationMs: number }>);
+            }, {});
 
-            // Send batch request
             const progressArray = Object.entries(progressByGame).map(([gameId, data]) => ({
                 game_uuid: gameId,
                 level: data.level,
@@ -256,23 +193,19 @@ export const gameProgressService = {
 
             if (response.ok) {
                 await this.clearSyncQueue();
-                console.log('[GameProgress] Synced', progressArray.length, 'games to server');
             }
-        } catch (e) {
-            console.warn('[GameProgress] Sync failed, will retry:', e);
+        } catch {
+            // Will retry on next sync
         }
     },
 
-    /**
-     * Get all local progress for profile display
-     */
     async getAllProgress(): Promise<GameProgress[]> {
         try {
             const keys = await AsyncStorage.getAllKeys();
             const progressKeys = keys.filter(k => k.startsWith(STORAGE_KEYS.PROGRESS_PREFIX));
             const items = await AsyncStorage.multiGet(progressKeys);
             return items
-                .map(([_, value]) => value ? JSON.parse(value) : null)
+                .map(([, value]) => value ? JSON.parse(value) : null)
                 .filter(Boolean) as GameProgress[];
         } catch {
             return [];
