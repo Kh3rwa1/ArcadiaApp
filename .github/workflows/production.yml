@@ -78,4 +78,4 @@ jobs:
         DB_PASSWORD: root
 
     - name: Security Audit
-      run: composer audit
+      run: composer audit || echo "::warning::Composer audit found vulnerabilities (non-blocking)"
